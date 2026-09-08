@@ -1,0 +1,98 @@
+/* app/globals.css */
+@import "tailwindcss";
+
+/* ============ CORRECTIONS GLOBALES ============ */
+
+/* Tous les textes dans les champs de saisie en NOIR */
+input, 
+textarea, 
+select {
+  color: #000000 !important;
+  font-weight: 500 !important;
+}
+
+/* Placeholders en gris moyen bien visible */
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280 !important;
+  font-weight: 400 !important;
+}
+
+/* Labels en noir et gras */
+label {
+  color: #111827 !important;
+  font-weight: 600 !important;
+}
+
+/* Texte général en gris foncé */
+p, span, div {
+  color: #1f2937;
+}
+
+/* Titres en noir */
+h1, h2, h3, h4, h5, h6 {
+  color: #111827 !important;
+}
+
+/* Champs de formulaire */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="number"],
+input[type="date"],
+textarea,
+select {
+  background-color: #ffffff !important;
+  border: 2px solid #d1d5db !important;
+  color: #000000 !important;
+  font-size: 16px !important;
+  padding: 12px !important;
+}
+
+/* Focus sur les champs */
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #2563eb !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+}
+
+/* Boutons */
+button {
+  font-weight: 600 !important;
+}
+
+/* Liens */
+a {
+  color: #2563eb !important;
+  font-weight: 500 !important;
+}
+
+/* Texte des paragraphes */
+p {
+  font-weight: 500 !important;
+}
+
+/* Texte dans les cartes */
+.card-text, 
+.description, 
+.info-text {
+  color: #374151 !important;
+  font-weight: 500 !important;
+}
+
+/* Messages d'erreur */
+.error-message {
+  color: #dc2626 !important;
+  font-weight: 600 !important;
+}
+
+/* Messages de succès */
+.success-message {
+  color: #16a34a !important;
+  font-weight: 600 !important;
+}
+
+/* ============ FIN DES CORRECTIONS ============ */
