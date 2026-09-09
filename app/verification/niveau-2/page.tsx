@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../../../context/AuthContext';
 import { 
   Camera, 
   X, 
@@ -28,6 +29,7 @@ export default function VerificationNiveau2Page() {
   // ============================================
   // ÉTATS POUR LE DOCUMENT
   // ============================================
+  const { completeKYCStep } = useAuth();
   const [documentType, setDocumentType] = useState<'CNI' | 'PASSPORT'>('CNI');
   const [frontImage, setFrontImage] = useState<string | null>(null);
   const [backImage, setBackImage] = useState<string | null>(null);
@@ -377,6 +379,7 @@ export default function VerificationNiveau2Page() {
       alert('✅ Documents soumis avec succès !');
       window.location.href = '/verification/statut';
     }, 2000);
+    completeKYCStep(2);
   };
 
   // ============================================

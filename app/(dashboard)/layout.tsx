@@ -1,5 +1,7 @@
-// app/(dashboard)/layout.tsx
+'use client';
+
 import Sidebar from '../../components/shared/Sidebar';
+import ProtectedRoute from '../../components/auth/ProtectedRoute';
 
 export default function DashboardLayout({
   children,
@@ -7,15 +9,15 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {/* La sidebar est en flux normal sur desktop grâce à lg:static */}
-      <Sidebar />
-      {/* Le contenu prend le reste de l'espace */}
-      <main className="flex-1">
-        <div className="p-4 lg:p-6">
-          {children}
-        </div>
-      </main>
-    </div>
+    <ProtectedRoute requiredKYCLevel={0}>
+      <div className="min-h-screen flex bg-gray-50 dark:bg-gray-900">
+        <Sidebar />
+        <main className="flex-1">
+          <div className="p-4 lg:p-6">
+            {children}
+          </div>
+        </main>
+      </div>
+    </ProtectedRoute>
   );
 }

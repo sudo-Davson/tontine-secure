@@ -4,14 +4,18 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Wallet, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
@@ -23,9 +27,14 @@ export default function LoginPage() {
       setError('Mot de passe invalide');
       return;
     }
+
+    const success = await login(email, password);
     
-    alert('Connexion réussie !');
-    window.location.href = '/dashboard';
+    if (success) {
+      router.push('/dashboard');
+    } else {
+      setError('Email ou mot de passe incorrect');
+    }
   };
 
   const inputClassName = "w-full pl-10 pr-3 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-gray-500 bg-white font-medium";

@@ -6,9 +6,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Wallet, Mail, Lock, User, Phone, Shield, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -36,7 +38,7 @@ export default function RegisterPage() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
@@ -55,14 +57,22 @@ export default function RegisterPage() {
 
     setIsLoading(true);
 
-    // Simuler l'inscription
-    setTimeout(() => {
+    const success = await register({
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password,
+    });
+
+    if (success) {
       setIsLoading(false);
       alert('Inscription réussie ! Redirection vers la vérification...');
-      
-      // Utiliser window.location pour une redirection forcée
-      window.location.href = '/verification/niveau-1';
-    }, 1500);
+      router.push('/verification/niveau-1');
+    } else {
+      setIsLoading(false);
+      setError("Erreur lors de l'inscription");
+    }
   };
 
   return (
@@ -181,12 +191,12 @@ export default function RegisterPage() {
                       value={formData.phone}
                       onChange={handleChange}
                       className={inputClassName}
-                      placeholder="+225 07 00 00 00 00"
+                      placeholder="+228 00 00 00 00"
                       required
                     />
                   </div>
                   <p className="text-xs text-gray-600 mt-1 font-medium">
-                    Format : +225 XX XX XX XX XX
+                    Format : +228 XX XX XX XX
                   </p>
                 </div>
 

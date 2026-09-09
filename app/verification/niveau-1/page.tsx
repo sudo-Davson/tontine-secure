@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../../context/AuthContext';
 import { 
   Mail, 
   Phone, 
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 
 export default function VerificationNiveau1Page() {
+  const { completeKYCStep } = useAuth();
   const [emailStatus, setEmailStatus] = useState<'UNVERIFIED' | 'SENDING' | 'SENT' | 'VERIFIED'>('UNVERIFIED');
   const [phoneStatus, setPhoneStatus] = useState<'UNVERIFIED' | 'SENDING' | 'SENT' | 'VERIFIED'>('UNVERIFIED');
   const [email, setEmail] = useState('');
@@ -46,9 +48,8 @@ export default function VerificationNiveau1Page() {
   };
 
   const handleVerifyEmail = () => {
-    if (!verificationCode) {
-      alert('Veuillez entrer le code de vérification');
-      return;
+    if (emailStatus === 'VERIFIED' && phoneStatus === 'VERIFIED') {
+      completeKYCStep(1);
     }
     
     setTimeout(() => {
@@ -75,9 +76,8 @@ export default function VerificationNiveau1Page() {
   };
 
   const handleVerifyPhone = () => {
-    if (!verificationCode) {
-      alert('Veuillez entrer le code de vérification');
-      return;
+    if (emailStatus === 'VERIFIED' && phoneStatus === 'VERIFIED') {
+      completeKYCStep(1);
     }
     
     setTimeout(() => {
