@@ -6,6 +6,13 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../../context/AuthContext';
 import { tontineService, REGLES } from '../../../../lib/services/tontine-service';
 import { 
+  frequenceService, 
+  FrequenceConfig,
+  TypeFrequence,
+  JourSemaine,
+  SemaineDuMois 
+} from '../../../../lib/services/frequence-service';
+import { 
   Wallet, 
   Users, 
   Calendar, 
@@ -25,12 +32,41 @@ import {
   Info
 } from 'lucide-react';
 
+// ============================================
+// CONSTANTES
+// ============================================
+
 // Types de fréquence
-const frequences = [
+const typesFrequence = [
+  { id: 'JOURNALIERE', label: 'Journalière', description: 'Tous les jours' },
   { id: 'HEBDOMADAIRE', label: 'Hebdomadaire', description: 'Chaque semaine' },
   { id: 'BIHEBDOMADAIRE', label: 'Bi-hebdomadaire', description: 'Toutes les 2 semaines' },
-  { id: 'MENSUEL', label: 'Mensuel', description: 'Chaque mois' },
-  { id: 'TRIMESTRIEL', label: 'Trimestriel', description: 'Tous les 3 mois' },
+  { id: 'MENSUELLE', label: 'Mensuelle', description: 'Chaque mois' },
+  { id: 'BIMENSUELLE', label: 'Bimensuelle', description: 'Tous les 2 mois' },
+  { id: 'TRIMESTRIELLE', label: 'Trimestrielle', description: 'Tous les 3 mois' },
+  { id: 'SEMESTRIELLE', label: 'Semestrielle', description: 'Tous les 6 mois' },
+  { id: 'ANNUELLE', label: 'Annuelle', description: 'Chaque année' },
+  { id: 'PERSONNALISEE', label: 'Personnalisée', description: 'Intervalle personnalisé' },
+];
+
+// Jours de la semaine
+const joursSemaine = [
+  { id: 'LUNDI', label: 'Lundi' },
+  { id: 'MARDI', label: 'Mardi' },
+  { id: 'MERCREDI', label: 'Mercredi' },
+  { id: 'JEUDI', label: 'Jeudi' },
+  { id: 'VENDREDI', label: 'Vendredi' },
+  { id: 'SAMEDI', label: 'Samedi' },
+  { id: 'DIMANCHE', label: 'Dimanche' },
+];
+
+// Semaines du mois
+const semainesDuMois = [
+  { id: 'PREMIERE', label: '1er' },
+  { id: 'DEUXIEME', label: '2ème' },
+  { id: 'TROISIEME', label: '3ème' },
+  { id: 'QUATRIEME', label: '4ème' },
+  { id: 'DERNIERE', label: 'Dernier' },
 ];
 
 // Modes de rotation
@@ -73,6 +109,9 @@ const methodesPaiement = [
   },
 ];
 
+// ============================================
+// COMPOSANT PRINCIPAL
+// ============================================
 export default function CreerTontinePage() {
   const router = useRouter();
   const { kycLevel, user } = useAuth();
@@ -87,13 +126,22 @@ export default function CreerTontinePage() {
     // Étape 1 : Informations générales
     nom: '',
     description: '',
-    type: 'EPARGNE', // EPARGNE, CREDIT, MIXTE
+    type: 'EPARGNE',
     
     // Étape 2 : Paramètres financiers
     montantCotisation: '',
-    frequence: 'MENSUEL',
     nombreMembres: '',
     modeRotation: 'ALEATOIRE',
+    
+    // Configuration de la fréquence
+    frequence: {
+      type: 'MENSUELLE' as TypeFrequence,
+      jourSemaine: 'LUNDI' as JourSemaine,
+      jourDuMois: 1,
+      intervalleJours: 7,
+      semaineDuMois: 'PREMIERE' as SemaineDuMois,
+      utiliserSemaineDuMois: false,
+    } as FrequenceConfig,
     
     // Étape 3 : Méthodes de paiement
     methodePaiement: 'TMONEY',
@@ -112,12 +160,14 @@ export default function CreerTontinePage() {
     },
   });
 
-  // Vérifier si l'utilisateur peut créer une tontine
+  // ============================================
+  // VÉRIFICATION
+  // ============================================
   useEffect(() => {
     const verification = tontineService.canCreateTontine({
       kycLevel: kycLevel,
-      reputation: user?.reputation || 85, // À remplacer par la vraie réputation
-      tontinesActives: user?.tontinesActives || 1, // À remplacer par le vrai nombre
+      reputation: user?.reputation || 85,
+      tontinesActives: user?.tontinesActives || 1,
     });
 
     if (!verification.success) {
@@ -126,6 +176,9 @@ export default function CreerTontinePage() {
     }
   }, [kycLevel, user, router]);
 
+  // ============================================
+  // HANDLERS
+  // ============================================
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -141,6 +194,32 @@ export default function CreerTontinePage() {
     });
   };
 
+  // Mettre à jour la configuration de fréquence
+  const updateFrequence = (updates: Partial<FrequenceConfig>) => {
+    setFormData({
+      ...formData,
+      frequence: {
+        ...formData.frequence,
+        ...updates,
+      },
+    });
+  };
+
+  // ============================================
+  // CALCULS AUTOMATIQUES
+  // ============================================
+  const montantTotalParTour = formData.montantCotisation && formData.nombreMembres
+    ? parseInt(formData.montantCotisation) * parseInt(formData.nombreMembres)
+    : 0;
+
+  const frequenceLabel = frequenceService.getLibelleFrequence(formData.frequence);
+  const nombreCotisationsParAn = frequenceService.getNombreCotisationsParAn(formData.frequence);
+  const montantTotalParAn = montantTotalParTour * nombreCotisationsParAn;
+  const prochainesDates = frequenceService.calculerProchainesDates(formData.frequence, 3);
+
+  // ============================================
+  // VALIDATION
+  // ============================================
   const validateStep = () => {
     setError('');
 
@@ -167,6 +246,12 @@ export default function CreerTontinePage() {
       if (parseInt(formData.nombreMembres) > 50) {
         setError('Le nombre de membres ne peut pas dépasser 50');
         return false;
+      }
+      if (formData.frequence.type === 'PERSONNALISEE') {
+        if (!formData.frequence.intervalleJours || formData.frequence.intervalleJours < 1) {
+          setError('L\'intervalle doit être au moins 1 jour');
+          return false;
+        }
       }
     }
 
@@ -201,6 +286,9 @@ export default function CreerTontinePage() {
     }
   };
 
+  // ============================================
+  // SOUMISSION
+  // ============================================
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -217,6 +305,7 @@ export default function CreerTontinePage() {
     //   type: formData.type,
     //   montantCotisation: formData.montantCotisation,
     //   frequence: formData.frequence,
+    //   frequenceLabel: frequenceLabel,
     //   nombreMembres: formData.nombreMembres,
     //   modeRotation: formData.modeRotation,
     //   methodePaiement: formData.methodePaiement,
@@ -240,6 +329,9 @@ export default function CreerTontinePage() {
     }, 2000);
   };
 
+  // ============================================
+  // STYLES
+  // ============================================
   const inputClassName = "w-full px-3 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-gray-500 bg-white font-medium dark:bg-gray-800 dark:border-gray-600 dark:text-white";
   const labelClassName = "block text-sm font-bold text-gray-900 mb-2 dark:text-white";
 
@@ -250,7 +342,9 @@ export default function CreerTontinePage() {
     'Sécurité',
   ];
 
-  // Si l'utilisateur ne peut pas créer de tontine
+  // ============================================
+  // SI L'UTILISATEUR NE PEUT PAS CRÉER
+  // ============================================
   if (!canCreate) {
     return (
       <div className="max-w-2xl mx-auto">
@@ -269,6 +363,9 @@ export default function CreerTontinePage() {
     );
   }
 
+  // ============================================
+  // RENDU PRINCIPAL
+  // ============================================
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
@@ -388,9 +485,10 @@ export default function CreerTontinePage() {
           <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-600">
             <h2 className="text-lg font-bold text-gray-900 mb-4 dark:text-white">Paramètres financiers</h2>
             
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Montant */}
               <div>
-                <label className={labelClassName}>Montant de cotisation (FCFA) *</label>
+                <label className={labelClassName}>Montant de cotisation par membre (FCFA) *</label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
                   <input
@@ -404,34 +502,9 @@ export default function CreerTontinePage() {
                     style={{ color: '#000000' }}
                   />
                 </div>
-                <p className="text-xs text-gray-700 font-medium mt-1 dark:text-gray-300">
-                  Montant total par tour : {formData.montantCotisation && formData.nombreMembres 
-                    ? `${(parseInt(formData.montantCotisation) * parseInt(formData.nombreMembres)).toLocaleString()} FCFA` 
-                    : 'Remplissez les champs pour voir le calcul'}
-                </p>
               </div>
 
-              <div>
-                <label className={labelClassName}>Fréquence de cotisation *</label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {frequences.map((freq) => (
-                    <button
-                      key={freq.id}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, frequence: freq.id })}
-                      className={`p-3 border-2 rounded-lg text-center transition-colors ${
-                        formData.frequence === freq.id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'
-                          : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'
-                      }`}
-                    >
-                      <Calendar className={`h-6 w-6 mx-auto mb-1 ${formData.frequence === freq.id ? 'text-blue-600' : 'text-gray-400'}`} />
-                      <p className="text-xs font-bold text-gray-900 dark:text-white">{freq.label}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
+              {/* Nombre de membres */}
               <div>
                 <label className={labelClassName}>Nombre de membres *</label>
                 <div className="relative">
@@ -450,6 +523,189 @@ export default function CreerTontinePage() {
                 </div>
               </div>
 
+              {/* Type de fréquence */}
+              <div>
+                <label className={labelClassName}>Type de fréquence *</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {typesFrequence.map((freq) => (
+                    <button
+                      key={freq.id}
+                      type="button"
+                      onClick={() => updateFrequence({ type: freq.id as TypeFrequence })}
+                      className={`p-3 border-2 rounded-lg text-center transition-colors ${
+                        formData.frequence.type === freq.id
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'
+                          : 'border-gray-200 hover:border-gray-300 dark:border-gray-600'
+                      }`}
+                    >
+                      <Calendar className={`h-5 w-5 mx-auto mb-1 ${formData.frequence.type === freq.id ? 'text-blue-600' : 'text-gray-400'}`} />
+                      <p className="text-xs font-bold text-gray-900 dark:text-white">{freq.label}</p>
+                      <p className="text-xs text-gray-600 font-medium mt-1 dark:text-gray-400">{freq.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Configuration spécifique : HEBDOMADAIRE / BIHEBDOMADAIRE */}
+              {(formData.frequence.type === 'HEBDOMADAIRE' || formData.frequence.type === 'BIHEBDOMADAIRE') && (
+                <div>
+                  <label className={labelClassName}>Jour de la semaine *</label>
+                  <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
+                    {joursSemaine.map((jour) => (
+                      <button
+                        key={jour.id}
+                        type="button"
+                        onClick={() => updateFrequence({ jourSemaine: jour.id as JourSemaine })}
+                        className={`p-2 border-2 rounded-lg text-center transition-colors ${
+                          formData.frequence.jourSemaine === jour.id
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'
+                            : 'border-gray-200 hover:border-gray-300 dark:border-gray-600'
+                        }`}
+                      >
+                        <p className="text-xs font-bold text-gray-900 dark:text-white">{jour.label}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Configuration spécifique : MENSUELLE, BIMENSUELLE, etc. */}
+              {['MENSUELLE', 'BIMENSUELLE', 'TRIMESTRIELLE', 'SEMESTRIELLE', 'ANNUELLE'].includes(formData.frequence.type) && (
+                <div className="space-y-4">
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={!formData.frequence.utiliserSemaineDuMois}
+                        onChange={() => updateFrequence({ utiliserSemaineDuMois: false })}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">Jour du mois</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={formData.frequence.utiliserSemaineDuMois}
+                        onChange={() => updateFrequence({ utiliserSemaineDuMois: true })}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">Semaine du mois</span>
+                    </label>
+                  </div>
+
+                  {!formData.frequence.utiliserSemaineDuMois && (
+                    <div>
+                      <label className={labelClassName}>Jour du mois (1-31) *</label>
+                      <input
+                        type="number"
+                        value={formData.frequence.jourDuMois || 1}
+                        onChange={(e) => updateFrequence({ jourDuMois: parseInt(e.target.value) })}
+                        className={inputClassName}
+                        min="1"
+                        max="31"
+                        style={{ color: '#000000' }}
+                      />
+                      <p className="text-xs text-gray-600 font-medium mt-1 dark:text-gray-400">
+                        Ex: 15 pour le 15 de chaque mois
+                      </p>
+                    </div>
+                  )}
+
+                  {formData.frequence.utiliserSemaineDuMois && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className={labelClassName}>Semaine du mois *</label>
+                        <select
+                          value={formData.frequence.semaineDuMois || 'PREMIERE'}
+                          onChange={(e) => updateFrequence({ semaineDuMois: e.target.value as SemaineDuMois })}
+                          className={inputClassName}
+                          style={{ color: '#000000' }}
+                        >
+                          {semainesDuMois.map((s) => (
+                            <option key={s.id} value={s.id}>{s.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClassName}>Jour de la semaine *</label>
+                        <select
+                          value={formData.frequence.jourSemaine || 'LUNDI'}
+                          onChange={(e) => updateFrequence({ jourSemaine: e.target.value as JourSemaine })}
+                          className={inputClassName}
+                          style={{ color: '#000000' }}
+                        >
+                          {joursSemaine.map((j) => (
+                            <option key={j.id} value={j.id}>{j.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <p className="col-span-2 text-xs text-gray-600 font-medium dark:text-gray-400">
+                        Ex: "2ème Samedi du mois" = le 2ème samedi de chaque mois
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Configuration spécifique : PERSONNALISEE */}
+              {formData.frequence.type === 'PERSONNALISEE' && (
+                <div>
+                  <label className={labelClassName}>Intervalle en jours *</label>
+                  <input
+                    type="number"
+                    value={formData.frequence.intervalleJours || 7}
+                    onChange={(e) => updateFrequence({ intervalleJours: parseInt(e.target.value) })}
+                    className={inputClassName}
+                    min="1"
+                    style={{ color: '#000000' }}
+                  />
+                  <p className="text-xs text-gray-600 font-medium mt-1 dark:text-gray-400">
+                    Ex: 3 pour "tous les 3 jours"
+                  </p>
+                </div>
+              )}
+
+              {/* RÉCAPITULATIF AUTOMATIQUE */}
+              {montantTotalParTour > 0 && (
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 dark:bg-blue-900 dark:border-blue-700">
+                  <h3 className="font-bold text-gray-900 mb-3 dark:text-white flex items-center gap-2">
+                    <Info className="h-5 w-5 text-blue-600" />
+                    Récapitulatif automatique
+                  </h3>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+                    <div>
+                      <p className="text-xs text-gray-600 font-bold dark:text-gray-400">Fréquence</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">{frequenceLabel}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 font-bold dark:text-gray-400">Montant par tour</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">{montantTotalParTour.toLocaleString()} FCFA</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 font-bold dark:text-gray-400">Cotisations/an</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">{nombreCotisationsParAn}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 font-bold dark:text-gray-400">Total/an</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">{montantTotalParAn.toLocaleString()} FCFA</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t-2 border-blue-200 dark:border-blue-700">
+                    <p className="text-xs text-gray-600 font-bold dark:text-gray-400 mb-2">Prochaines dates :</p>
+                    <div className="space-y-1">
+                      {prochainesDates.map((date, index) => (
+                        <p key={index} className="text-sm font-medium text-gray-900 dark:text-white">
+                          • {frequenceService.formaterDate(date)}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mode de rotation */}
               <div>
                 <label className={labelClassName}>Mode de rotation *</label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -463,7 +719,7 @@ export default function CreerTontinePage() {
                         className={`p-4 border-2 rounded-lg text-center transition-colors ${
                           formData.modeRotation === mode.id
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'
-                            : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'
+                            : 'border-gray-200 hover:border-gray-300 dark:border-gray-600'
                         }`}
                       >
                         <Icon className={`h-8 w-8 mx-auto mb-2 ${formData.modeRotation === mode.id ? 'text-blue-600' : 'text-gray-400'}`} />
@@ -497,7 +753,7 @@ export default function CreerTontinePage() {
                         className={`p-4 border-2 rounded-lg transition-colors ${
                           formData.methodePaiement === methode.id
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'
-                            : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'
+                            : 'border-gray-200 hover:border-gray-300 dark:border-gray-600'
                         }`}
                       >
                         <div className={`h-10 w-10 rounded-full ${methode.couleur} flex items-center justify-center mx-auto mb-2`}>

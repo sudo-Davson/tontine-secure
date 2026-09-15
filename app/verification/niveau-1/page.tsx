@@ -87,23 +87,31 @@ export default function VerificationNiveau1Page() {
     }, 1000);
   };
 
+  // Classes réutilisables
+  const inputClassName = "w-full px-3 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-gray-500 bg-white font-medium dark:bg-gray-800 dark:border-gray-600 dark:text-white";
+  const buttonClassName = "w-full sm:w-auto px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-bold text-sm";
+
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="w-full max-w-2xl mx-auto px-3 sm:px-4">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Vérification Niveau 1</h1>
-        <p className="text-gray-900 font-medium mt-2">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+          Vérification Niveau 1
+        </h1>
+        <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 font-medium mt-2">
           Vérifiez votre email et votre numéro de téléphone
         </p>
       </div>
 
       {/* Status global */}
-      <div className="mb-6 bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
-        <div className="flex items-center gap-3">
-          <Shield className="h-8 w-8 text-blue-600" />
-          <div>
-            <h3 className="font-bold text-gray-900">Vérification de base</h3>
-            <p className="text-gray-900 font-medium">
+      <div className="mb-4 sm:mb-6 bg-blue-50 dark:bg-blue-900 border-2 border-blue-200 dark:border-blue-700 rounded-xl p-3 sm:p-4">
+        <div className="flex items-start gap-3">
+          <Shield className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-gray-900 dark:text-white text-sm sm:text-base">
+              Vérification de base
+            </h3>
+            <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium mt-1">
               {emailStatus === 'VERIFIED' && phoneStatus === 'VERIFIED'
                 ? 'Niveau 1 complété ! Vous pouvez passer au niveau 2.'
                 : 'Vérifiez votre email et votre téléphone pour compléter le niveau 1.'}
@@ -113,17 +121,19 @@ export default function VerificationNiveau1Page() {
       </div>
 
       {/* Vérification Email */}
-      <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6 mb-4">
-        <div className="flex items-start gap-4">
-          <div className={`h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border-2 border-gray-200 dark:border-gray-600 p-4 sm:p-6 mb-4">
+        <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
+          <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center flex-shrink-0 ${
             emailStatus === 'VERIFIED' ? 'bg-green-100' : 'bg-blue-100'
           }`}>
-            <Mail className={`h-6 w-6 ${emailStatus === 'VERIFIED' ? 'text-green-600' : 'text-blue-600'}`} />
+            <Mail className={`h-5 w-5 sm:h-6 sm:w-6 ${emailStatus === 'VERIFIED' ? 'text-green-600' : 'text-blue-600'}`} />
           </div>
           
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-bold text-gray-900">Vérification Email</h3>
+          <div className="flex-1 w-full min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="font-bold text-gray-900 dark:text-white text-sm sm:text-base">
+                Vérification Email
+              </h3>
               {emailStatus === 'VERIFIED' && (
                 <CheckCircle className="h-5 w-5 text-green-600" />
               )}
@@ -131,21 +141,20 @@ export default function VerificationNiveau1Page() {
             
             {emailStatus === 'UNVERIFIED' && (
               <div className="space-y-3">
-                <p className="text-gray-900 font-medium">
+                <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">
                   Nous enverrons un code de vérification à votre adresse email
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="flex-1 px-3 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-gray-500 bg-white font-medium"
+                    className={`${inputClassName} flex-1`}
                     placeholder="votre@email.com"
-                    style={{ color: '#000000' }}
                   />
                   <button
                     onClick={handleSendEmailVerification}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-bold"
+                    className={buttonClassName}
                   >
                     <Send className="h-4 w-4" />
                     Envoyer
@@ -155,7 +164,7 @@ export default function VerificationNiveau1Page() {
             )}
 
             {emailStatus === 'SENDING' && (
-              <div className="flex items-center gap-2 text-gray-900 font-medium">
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium text-sm">
                 <RefreshCw className="h-5 w-5 animate-spin" />
                 Envoi du code...
               </div>
@@ -163,22 +172,21 @@ export default function VerificationNiveau1Page() {
 
             {showEmailCodeInput && emailStatus !== 'VERIFIED' && (
               <div className="space-y-3 mt-3">
-                <p className="text-gray-900 font-medium">
+                <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">
                   Entrez le code reçu par email
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     value={verificationCode}
                     onChange={(e) => setVerificationCode(e.target.value)}
-                    className="flex-1 px-3 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-gray-500 bg-white font-medium text-center tracking-widest"
+                    className={`${inputClassName} flex-1 text-center tracking-widest`}
                     placeholder="000000"
                     maxLength={6}
-                    style={{ color: '#000000' }}
                   />
                   <button
                     onClick={handleVerifyEmail}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-bold"
+                    className="w-full sm:w-auto px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-bold text-sm"
                   >
                     Vérifier
                   </button>
@@ -186,7 +194,7 @@ export default function VerificationNiveau1Page() {
                 <button
                   onClick={handleSendEmailVerification}
                   disabled={countdown > 0}
-                  className="text-sm text-blue-600 hover:text-blue-700 disabled:text-gray-400 font-bold"
+                  className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 disabled:text-gray-400 font-bold"
                 >
                   {countdown > 0 ? `Renvoyer dans ${countdown}s` : 'Renvoyer le code'}
                 </button>
@@ -194,7 +202,7 @@ export default function VerificationNiveau1Page() {
             )}
 
             {emailStatus === 'VERIFIED' && (
-              <p className="text-green-700 font-bold mt-1">
+              <p className="text-green-700 dark:text-green-400 font-bold mt-1 text-sm">
                 Email vérifié avec succès
               </p>
             )}
@@ -203,17 +211,19 @@ export default function VerificationNiveau1Page() {
       </div>
 
       {/* Vérification Téléphone */}
-      <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6 mb-4">
-        <div className="flex items-start gap-4">
-          <div className={`h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border-2 border-gray-200 dark:border-gray-600 p-4 sm:p-6 mb-4">
+        <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
+          <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center flex-shrink-0 ${
             phoneStatus === 'VERIFIED' ? 'bg-green-100' : 'bg-purple-100'
           }`}>
-            <Phone className={`h-6 w-6 ${phoneStatus === 'VERIFIED' ? 'text-green-600' : 'text-purple-600'}`} />
+            <Phone className={`h-5 w-5 sm:h-6 sm:w-6 ${phoneStatus === 'VERIFIED' ? 'text-green-600' : 'text-purple-600'}`} />
           </div>
           
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-bold text-gray-900">Vérification Téléphone</h3>
+          <div className="flex-1 w-full min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="font-bold text-gray-900 dark:text-white text-sm sm:text-base">
+                Vérification Téléphone
+              </h3>
               {phoneStatus === 'VERIFIED' && (
                 <CheckCircle className="h-5 w-5 text-green-600" />
               )}
@@ -221,21 +231,20 @@ export default function VerificationNiveau1Page() {
             
             {phoneStatus === 'UNVERIFIED' && (
               <div className="space-y-3">
-                <p className="text-gray-900 font-medium">
+                <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">
                   Nous enverrons un code par SMS à votre téléphone
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="flex-1 px-3 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-gray-500 bg-white font-medium"
+                    className={`${inputClassName} flex-1`}
                     placeholder="+228 XX XX XX XX"
-                    style={{ color: '#000000' }}
                   />
                   <button
                     onClick={handleSendPhoneVerification}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 font-bold"
+                    className="w-full sm:w-auto px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 font-bold text-sm"
                   >
                     <Smartphone className="h-4 w-4" />
                     Envoyer
@@ -245,7 +254,7 @@ export default function VerificationNiveau1Page() {
             )}
 
             {phoneStatus === 'SENDING' && (
-              <div className="flex items-center gap-2 text-gray-900 font-medium">
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium text-sm">
                 <RefreshCw className="h-5 w-5 animate-spin" />
                 Envoi du SMS...
               </div>
@@ -253,22 +262,21 @@ export default function VerificationNiveau1Page() {
 
             {showPhoneCodeInput && phoneStatus !== 'VERIFIED' && (
               <div className="space-y-3 mt-3">
-                <p className="text-gray-900 font-medium">
+                <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">
                   Entrez le code reçu par SMS
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     value={verificationCode}
                     onChange={(e) => setVerificationCode(e.target.value)}
-                    className="flex-1 px-3 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-gray-500 bg-white font-medium text-center tracking-widest"
+                    className={`${inputClassName} flex-1 text-center tracking-widest`}
                     placeholder="000000"
                     maxLength={6}
-                    style={{ color: '#000000' }}
                   />
                   <button
                     onClick={handleVerifyPhone}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-bold"
+                    className="w-full sm:w-auto px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-bold text-sm"
                   >
                     Vérifier
                   </button>
@@ -276,7 +284,7 @@ export default function VerificationNiveau1Page() {
                 <button
                   onClick={handleSendPhoneVerification}
                   disabled={countdown > 0}
-                  className="text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400 font-bold"
+                  className="text-xs sm:text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400 font-bold"
                 >
                   {countdown > 0 ? `Renvoyer dans ${countdown}s` : 'Renvoyer le code'}
                 </button>
@@ -284,7 +292,7 @@ export default function VerificationNiveau1Page() {
             )}
 
             {phoneStatus === 'VERIFIED' && (
-              <p className="text-green-700 font-bold mt-1">
+              <p className="text-green-700 dark:text-green-400 font-bold mt-1 text-sm">
                 Téléphone vérifié avec succès
               </p>
             )}
@@ -294,12 +302,14 @@ export default function VerificationNiveau1Page() {
 
       {/* Progression */}
       {emailStatus === 'VERIFIED' && phoneStatus === 'VERIFIED' && (
-        <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <CheckCircle className="h-8 w-8 text-green-600" />
-            <div>
-              <h3 className="font-bold text-gray-900">Niveau 1 complété !</h3>
-              <p className="text-gray-900 font-medium mt-1">
+        <div className="bg-green-50 dark:bg-green-900 border-2 border-green-200 dark:border-green-700 rounded-xl p-4">
+          <div className="flex flex-col sm:flex-row items-start gap-3">
+            <CheckCircle className="h-8 w-8 text-green-600 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-bold text-gray-900 dark:text-white text-sm sm:text-base">
+                Niveau 1 complété !
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium mt-1">
                 Vous pouvez maintenant passer au niveau 2 pour la vérification d'identité.
               </p>
               <a 
@@ -314,7 +324,7 @@ export default function VerificationNiveau1Page() {
       )}
 
       {/* Sécurité */}
-      <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-900 font-medium">
+      <div className="mt-4 flex items-center justify-center gap-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">
         <Lock className="h-4 w-4" />
         Vos informations sont protégées et chiffrées
       </div>

@@ -7,133 +7,143 @@ import {
   LayoutDashboard, 
   Users, 
   Wallet, 
-  Settings, 
+  Shield, 
   LogOut,
   TrendingUp,
-  AlertCircle,
-  CheckCircle,
-  Menu,
   X,
-  Shield,
-  History
+  Menu,
+  Bell,
+  History,
+  Settings,
+  Mail
 } from 'lucide-react';
 import { useState } from 'react';
+import { notificationService, NOTIFICATIONS_SIMULEES } from '../../lib/services/notification-service';
+import { invitationService, INVITATIONS_SIMULEES } from '../../lib/services/invitation-service';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Mes Tontines', href: '/tontines', icon: Users },
   { name: 'Portefeuille', href: '/portefeuille', icon: Wallet },
   { name: 'Transactions', href: '/transactions', icon: History },
+  { name: 'Notifications', href: '/notifications', icon: Bell },
+  { name: 'Invitations', href: '/invitations', icon: Mail },
+  { name: 'Vérification', href: '/verification', icon: Shield },
   { name: 'Sécurité', href: '/securite', icon: Shield },
   { name: 'Paramètres', href: '/parametres', icon: Settings },
-  { name: 'Vérification', href: '/verification', icon: Shield },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const nonLues = notificationService.compterNonLues(NOTIFICATIONS_SIMULEES);
+  const invitationsEnAttente = invitationService.compterEnAttente(INVITATIONS_SIMULEES);
+
+  const closeMenu = () => setIsOpen(false);
 
   return (
     <>
-      {/* Bouton menu mobile - TOUJOURS VISIBLE avec fond bleu */}
+      {/* Bouton menu mobile - visible seulement sur mobile */}
       <button
-        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-3 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition-colors"
-        aria-label="Menu"
+        onClick={() => setIsOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-lg shadow-lg"
+        aria-label="Ouvrir le menu"
       >
-        {isMobileMenuOpen ? <X className="h-6 w-6 text-white" /> : <Menu className="h-6 w-6 text-white" />}
+        <Menu className="h-6 w-6 text-white" />
       </button>
 
-      {/* Overlay pour mobile */}
-      {isMobileMenuOpen && (
+      {/* Overlay sombre - visible uniquement quand le menu est ouvert sur mobile */}
+      {isOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={closeMenu}
+          aria-hidden="true"
         />
       )}
 
       {/* Sidebar */}
-      <div className={`
-        fixed lg:static inset-y-0 left-0 transform 
-        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 transition-transform duration-300 ease-in-out
-        w-64 bg-gray-900 flex flex-col z-40
-      `}>
-        {/* Logo - texte BLANC */}
-        <div className="flex items-center gap-2 px-6 py-8">
-          <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center">
+      <aside
+        className={`
+          fixed top-0 left-0 bottom-0 z-50
+          w-64 bg-gray-900 flex flex-col
+          transform transition-transform duration-300 ease-in-out
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0
+        `}
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-2 px-6 py-6 border-b border-gray-800">
+          <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
             <TrendingUp className="h-6 w-6 text-white" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-white">TontineSecure</h1>
-            <p className="text-xs text-gray-300">Tontine en ligne</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">TontineSecure</h1>
+            <p className="text-xs text-gray-400 truncate">Tontine en ligne</p>
           </div>
+          <button
+            onClick={closeMenu}
+            className="lg:hidden p-1 hover:bg-gray-800 rounded-lg flex-shrink-0"
+            aria-label="Fermer le menu"
+          >
+            <X className="h-5 w-5 text-white" />
+          </button>
         </div>
 
-        {/* Navigation - texte BLANC */}
-        <nav className="flex-1 space-y-1 px-3">
+        {/* Navigation */}
+        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
           {navigation.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
             const Icon = item.icon;
+            
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={closeMenu}
                 className={`
-                  flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold transition-colors
+                  flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors
                   ${isActive 
                     ? 'bg-blue-600 text-white' 
-                    : 'text-gray-200 hover:bg-gray-800 hover:text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                   }
                 `}
               >
-                <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-300'}`} />
-                {item.name}
+                <Icon className={`h-5 w-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                <span className="flex-1 truncate">{item.name}</span>
+                
+                {item.name === 'Notifications' && nonLues > 0 && (
+                  <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+                    {nonLues}
+                  </span>
+                )}
+                
+                {item.name === 'Invitations' && invitationsEnAttente > 0 && (
+                  <span className="bg-purple-500 text-white text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+                    {invitationsEnAttente}
+                  </span>
+                )}
               </Link>
             );
           })}
         </nav>
 
-        {/* Stats rapides - texte BLANC */}
-        <div className="px-3 mb-4">
-          <div className="rounded-lg bg-gray-800 p-3">
-            <p className="text-xs font-semibold text-white mb-2">Mes Tontines</p>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium flex items-center gap-1 text-gray-200">
-                  <CheckCircle className="h-3 w-3 text-green-400" />
-                  Actives
-                </span>
-                <span className="text-xs font-bold text-white">3</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium flex items-center gap-1 text-gray-200">
-                  <AlertCircle className="h-3 w-3 text-yellow-400" />
-                  En attente
-                </span>
-                <span className="text-xs font-bold text-white">1</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* User info - texte BLANC */}
+        {/* Info utilisateur */}
         <div className="border-t border-gray-800 p-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
               <span className="text-sm font-bold text-white">U</span>
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-white">Utilisateur</p>
-              <p className="text-xs text-gray-300">user@email.com</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white truncate">Utilisateur</p>
+              <p className="text-xs text-gray-400 truncate">user@email.com</p>
             </div>
-            <button className="text-gray-300 hover:text-white">
-              <LogOut className="h-5 w-5" />
+            <button className="p-1 hover:bg-gray-800 rounded-lg flex-shrink-0" aria-label="Déconnexion">
+              <LogOut className="h-5 w-5 text-gray-400" />
             </button>
           </div>
         </div>
-      </div>
+      </aside>
     </>
   );
 }
