@@ -7,25 +7,25 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
+      <nav className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
+          <div className="flex flex-nowrap justify-between items-center gap-2 h-16">
+            <div className="flex items-center min-w-0 flex-shrink">
               <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center">
                 <Wallet className="h-6 w-6 text-white" />
               </div>
-              <span className="ml-3 text-xl font-bold text-gray-900">TontineSecure</span>
+              <span className="ml-3 text-xl font-bold text-gray-900 truncate hidden sm:inline">TontineSecure</span>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-nowrap items-center gap-1 sm:gap-4 flex-shrink-0">
               <Link 
                 href="/login" 
-                className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                className="text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap"
               >
                 Connexion
               </Link>
               <Link 
                 href="/register" 
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors whitespace-nowrap"
               >
                 Créer un compte
               </Link>

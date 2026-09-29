@@ -1,6 +1,8 @@
 // components/shared/Sidebar.tsx
 'use client';
 
+import toast from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -36,15 +38,26 @@ const navigation = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const { user, logout } = useAuth();
   
   const nonLues = notificationService.compterNonLues(NOTIFICATIONS_SIMULEES);
   const invitationsEnAttente = invitationService.compterEnAttente(INVITATIONS_SIMULEES);
 
   const closeMenu = () => setIsOpen(false);
 
+  const handleLogout = async () => {
+    toast.success('Déconnexion réussie !');
+    await logout();
+  };
+
+  // Initiales de l'utilisateur
+  const initiales = user
+    ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
+    : 'U';
+
   return (
     <>
-      {/* Bouton menu mobile - visible seulement sur mobile */}
+      {/* Bouton menu mobile */}
       <button
         onClick={() => setIsOpen(true)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-lg shadow-lg"
@@ -53,7 +66,7 @@ export default function Sidebar() {
         <Menu className="h-6 w-6 text-white" />
       </button>
 
-      {/* Overlay sombre - visible uniquement quand le menu est ouvert sur mobile */}
+      {/* Overlay sombre */}
       {isOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -132,13 +145,21 @@ export default function Sidebar() {
         <div className="border-t border-gray-800 p-4">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-bold text-white">U</span>
+              <span className="text-sm font-bold text-white">{initiales}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate">Utilisateur</p>
-              <p className="text-xs text-gray-400 truncate">user@email.com</p>
+              <p className="text-sm font-semibold text-white truncate">
+                {user ? `${user.firstName} ${user.lastName}` : 'Utilisateur'}
+              </p>
+              <p className="text-xs text-gray-400 truncate">
+                {user?.email || 'user@email.com'}
+              </p>
             </div>
-            <button className="p-1 hover:bg-gray-800 rounded-lg flex-shrink-0" aria-label="Déconnexion">
+            <button 
+              onClick={handleLogout}
+              className="p-1 hover:bg-gray-800 rounded-lg flex-shrink-0" 
+              aria-label="Déconnexion"
+            >
               <LogOut className="h-5 w-5 text-gray-400" />
             </button>
           </div>

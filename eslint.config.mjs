@@ -13,6 +13,20 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      // Les apostrophes sont usuelles dans les textes français et sont sûres dans le JSX.
+      "react/no-unescaped-entities": "off",
+      // Les contextes client initialisent volontairement leur état depuis le navigateur.
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
+  {
+    files: ["scripts/**/*.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

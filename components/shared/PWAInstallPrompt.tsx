@@ -3,8 +3,13 @@
 import { useState, useEffect } from 'react';
 import { Download, X, Share2 } from 'lucide-react';
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
 export default function PWAInstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -12,7 +17,7 @@ export default function PWAInstallPrompt() {
   useEffect(() => {
     const isInStandaloneMode = () => {
       return window.matchMedia('(display-mode: standalone)').matches 
-        || (window.navigator as any).standalone === true;
+        || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
     };
 
     setIsStandalone(isInStandaloneMode());
@@ -23,7 +28,7 @@ export default function PWAInstallPrompt() {
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
       
       setTimeout(() => {
         if (!isInStandaloneMode()) {
@@ -65,8 +70,8 @@ export default function PWAInstallPrompt() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-white border-t border-gray-200 shadow-lg">
-      <div className="max-w-md mx-auto flex items-center justify-between">
+    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white border-t border-gray-200 shadow-lg">
+      <div className="max-w-md mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex-1">
           <h3 className="font-semibold text-gray-900">Installer TontineSecure</h3>
           <p className="text-sm text-gray-600">
@@ -75,7 +80,7 @@ export default function PWAInstallPrompt() {
         </div>
         
         {isIOS ? (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 self-end sm:self-auto">
             <div className="text-center">
               <p className="text-xs text-gray-500 mb-1">Appuyez sur</p>
               <Share2 className="h-6 w-6 text-blue-600 mx-auto" />
@@ -89,7 +94,7 @@ export default function PWAInstallPrompt() {
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 self-end sm:self-auto">
             <button
               onClick={handleInstall}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"

@@ -131,7 +131,7 @@ export default function InvitationsPage() {
         ].map((filter) => (
           <button
             key={filter.id}
-            onClick={() => setFilterStatut(filter.id as any)}
+            onClick={() => setFilterStatut(filter.id as typeof filterStatut)}
             className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
               filterStatut === filter.id
                 ? 'bg-blue-600 text-white'

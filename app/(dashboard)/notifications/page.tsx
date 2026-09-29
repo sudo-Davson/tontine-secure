@@ -157,7 +157,7 @@ export default function NotificationsPage() {
         {types.map((type) => (
           <button
             key={type.id}
-            onClick={() => setFilterType(type.id as any)}
+            onClick={() => setFilterType(type.id as NotificationType | 'TOUTES')}
             className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
               filterType === type.id
                 ? 'bg-blue-600 text-white'

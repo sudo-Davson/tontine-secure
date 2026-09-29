@@ -1,6 +1,6 @@
 // app/(auth)/login/page.tsx
 'use client';
-
+import toast from 'react-hot-toast';
 import { useState } from 'react';
 import Link from 'next/link';
 import { Wallet, Mail, Lock, Eye, EyeOff } from 'lucide-react';
@@ -14,11 +14,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (!email.includes('@')) {
       setError('Adresse email invalide');
       return;
@@ -28,12 +29,19 @@ export default function LoginPage() {
       return;
     }
 
-    const success = await login(email, password);
-    
-    if (success) {
-      router.push('/dashboard');
+    setIsLoading(true);
+
+    const result = await login(email, password);
+
+    if (result.success) {
+      toast.success('Connexion réussie !');
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 1000);
     } else {
-      setError('Email ou mot de passe incorrect');
+      setIsLoading(false);
+      setError(result.error || 'Email ou mot de passe incorrect');
+      toast.error(result.error || 'Email ou mot de passe incorrect');
     }
   };
 
@@ -100,9 +108,14 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-base"
+              disabled={isLoading}
+              className={`w-full py-3 px-4 rounded-lg font-bold text-base transition-colors ${
+                isLoading
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
-              Se connecter
+              {isLoading ? 'Connexion...' : 'Se connecter'}
             </button>
           </form>
 

@@ -16,8 +16,10 @@ import {
   ChevronRight
 } from 'lucide-react';
 
+type CreationTestResult = ReturnType<typeof tontineService.canCreateTontine> & { test: string };
+
 export default function DemoPage() {
-  const [resultatsCreation, setResultatsCreation] = useState<any[]>([]);
+  const [resultatsCreation, setResultatsCreation] = useState<CreationTestResult[]>([]);
   const [resultatPenalite, setResultatPenalite] = useState<string>('');
   const [resultatReputation, setResultatReputation] = useState<string>('');
   const [resultatNotifications, setResultatNotifications] = useState<string[]>([]);

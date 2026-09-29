@@ -1,7 +1,7 @@
 // app/(dashboard)/rejoindre/[code]/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../../context/AuthContext';
@@ -39,20 +39,15 @@ export default function RejoindrePage() {
   const { kycLevel, user } = useAuth();
   const code = params.code as string;
 
-  const [tontine, setTontine] = useState(TONTINE_SIMULEE);
-  const [verification, setVerification] = useState<{ success: boolean; message: string } | null>(null);
+  const [tontine] = useState(TONTINE_SIMULEE);
   const [isJoining, setIsJoining] = useState(false);
   const [isJoined, setIsJoined] = useState(false);
 
-  // Vérifier si l'utilisateur peut rejoindre
-  useEffect(() => {
-    const check = invitationService.canJoinTontine(
-      { kycLevel: kycLevel, reputation: user?.reputation || 85 },
-      { membresActuels: tontine.membresActuels, nombreMembres: tontine.nombreMembres },
-      false
-    );
-    setVerification(check);
-  }, [kycLevel, user, tontine]);
+  const verification = invitationService.canJoinTontine(
+    { kycLevel, reputation: user?.reputation || 85 },
+    { membresActuels: tontine.membresActuels, nombreMembres: tontine.nombreMembres },
+    false
+  );
 
   const handleRejoindre = () => {
     if (!verification?.success) return;

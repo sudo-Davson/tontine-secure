@@ -10,7 +10,7 @@ export interface Notification {
   date: Date;
   lu: boolean;
   lien?: string;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 // Notifications simulées (à remplacer par le backend)
