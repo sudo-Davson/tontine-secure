@@ -1,7 +1,7 @@
 // app/api/tontines/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { prisma } from '@/lib/prisma';
+import { prismaWithRetry as prisma } from '@/lib/prisma';
 import { verifyToken, verifySession, COOKIE_NAME } from '@/lib/auth';
 
 async function getCurrentUser() {
@@ -48,9 +48,20 @@ export async function GET(
         membres: {
           include: {
             user: {
-              select: { id: true, firstName: true, lastName: true, email: true, reputation: true },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                reputation: true,
+                kycLevel: true,
+              },
             },
           },
+          orderBy: [
+            { statut: 'asc' },
+            { createdAt: 'asc' },
+          ],
         },
         tours: {
           orderBy: { numero: 'asc' },

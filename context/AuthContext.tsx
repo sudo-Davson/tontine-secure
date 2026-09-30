@@ -4,7 +4,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
-// Types
 type KYCLevel = 0 | 1 | 2 | 3;
 
 interface User {
@@ -29,7 +28,16 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   kycLevel: KYCLevel;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (
+    email: string,
+    password: string,
+    force?: boolean
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    existingSession?: any;
+    code?: string;
+  }>;
   register: (userData: {
     firstName: string;
     lastName: string;
@@ -50,9 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  // ============================================
-  // VÉRIFIER LA SESSION AU DÉMARRAGE
-  // ============================================
   useEffect(() => {
     checkSession();
   }, []);
@@ -69,16 +74,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.success && data.user) {
           setUser(data.user);
         } else {
-          // ✅ Réponse OK mais pas de user → null
           setUser(null);
         }
       } else {
-        // ✅ 401 ou autre erreur → user null
         setUser(null);
       }
     } catch (error) {
       console.error('Erreur session :', error);
-      // ✅ Erreur réseau → user null
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -89,13 +91,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await checkSession();
   };
 
-  // ============================================
-  // LOGIN
-  // ============================================
   const login = async (
     email: string,
-    password: string
-  ): Promise<{ success: boolean; error?: string }> => {
+    password: string,
+    force: boolean = false
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    existingSession?: any;
+    code?: string;
+  }> => {
     setIsLoading(true);
 
     try {
@@ -103,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, force }),
       });
 
       const data = await response.json();
@@ -114,7 +119,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: true };
       } else {
         setIsLoading(false);
-        return { success: false, error: data.error || 'Erreur de connexion' };
+        return {
+          success: false,
+          error: data.error || 'Erreur de connexion',
+          existingSession: data.existingSession,
+          code: data.code,
+        };
       }
     } catch (error) {
       console.error('Erreur login :', error);
@@ -123,9 +133,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // ============================================
-  // REGISTER
-  // ============================================
   const register = async (userData: {
     firstName: string;
     lastName: string;
@@ -160,9 +167,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // ============================================
-  // LOGOUT
-  // ============================================
   const logout = async () => {
     try {
       await fetch('/api/auth/logout', {
@@ -177,9 +181,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // ============================================
-  // KYC
-  // ============================================
   const updateKYCLevel = (level: KYCLevel) => {
     if (user) {
       setUser({ ...user, kycLevel: level });

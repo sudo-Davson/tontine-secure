@@ -52,7 +52,7 @@ export const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax' as const,
-  maxAge: 60 * 60 * 24 * 7, // 7 jours
+  maxAge: 60 * 60 * 24 * 7,
   path: '/',
 };
 
@@ -63,36 +63,46 @@ export const cookieOptions = {
 export async function createSession(
   userId: string,
   userAgent?: string,
-  ipAddress?: string
-): Promise<{ success: boolean; session?: any; error?: string }> {
-  // 1. Vérifier s'il y a déjà une session active
+  ipAddress?: string,
+  force: boolean = false
+): Promise<{ success: boolean; session?: any; error?: string; existingSession?: any }> {
   const existingSession = await prisma.session.findFirst({
     where: {
       userId,
       isActive: true,
       expiresAt: { gt: new Date() },
     },
+    orderBy: { createdAt: 'desc' },
   });
 
-  // 2. Si une session active existe → REFUSER
-  if (existingSession) {
+  if (existingSession && !force) {
     return {
       success: false,
-      error: 'Vous êtes déjà connecté sur un autre appareil. Veuillez vous déconnecter d\'abord.',
+      error: 'Vous êtes déjà connecté sur un autre appareil.',
+      existingSession: {
+        id: existingSession.id,
+        userAgent: existingSession.userAgent,
+        ipAddress: existingSession.ipAddress,
+        createdAt: existingSession.createdAt,
+      },
     };
   }
 
-  // 3. Générer un token
-  const token = generateToken({ userId, email: '' });
+  if (existingSession && force) {
+    await prisma.session.updateMany({
+      where: { userId, isActive: true },
+      data: { isActive: false, revokedAt: new Date() },
+    });
+  }
 
-  // 4. Créer une nouvelle session
+  const token = generateToken({ userId, email: '' });
   const session = await prisma.session.create({
     data: {
       userId,
       token,
       userAgent,
       ipAddress,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 jours
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
 

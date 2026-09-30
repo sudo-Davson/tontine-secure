@@ -46,7 +46,7 @@ model User {
   notifications   Notification[]
   invitationsSent Invitation[] @relation("InvitationSender")
   sessions        Session[]
-  
+
   // Timestamps
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -114,22 +114,35 @@ model Tontine {
 // ============================================
 
 model Member {
-  id          String   @id @default(cuid())
-  tontineId   String
-  userId      String
-  role        String   @default("MEMBRE")
-  statut      String   @default("ACTIF")
-  ordreTour   Int?
-  reputation  Float    @default(85)
-  nbRetards   Int      @default(0)
-  nbAbsences  Int      @default(0)
-  toursRecus  Int      @default(0)
+  id              String   @id @default(cuid())
+  tontineId       String
+  userId          String
+  role            String   @default("MEMBRE")
+  statut          String   @default("ACTIF")
+  ordreTour       Int?
+  reputation      Float    @default(85)
+  nbRetards       Int      @default(0)
+  nbAbsences      Int      @default(0)
+  toursRecus      Int      @default(0)
   
-  tontine     Tontine  @relation(fields: [tontineId], references: [id], onDelete: Cascade)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Soft Delete
+  retireLe        DateTime?
+  retirePar       String?
+  raisonRetrait   String?
   
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // ⚠️ NOUVEAU : Remboursement
+  montantCotise   Float    @default(0)  // Total cotisé
+  montantPenalite Float    @default(0)  // Pénalité retenue
+  montantRembourse Float   @default(0)  // Montant remboursé
+  pourcentagePenalite Int @default(0)   // % de pénalité
+  rembourseLe     DateTime?
+  statutRemboursement String @default("EN_ATTENTE") // EN_ATTENTE, REMBOURSE, ANNULE
+  
+  tontine         Tontine  @relation(fields: [tontineId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   
   @@unique([tontineId, userId])
   @@map("members")

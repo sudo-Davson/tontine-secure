@@ -1,7 +1,7 @@
 // app/api/tontines/route.ts
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { prisma } from '@/lib/prisma';
+import { prismaWithRetry as prisma } from '@/lib/prisma';
 import { verifyToken, verifySession, COOKIE_NAME } from '@/lib/auth';
 
 // ============================================
