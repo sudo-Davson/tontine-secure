@@ -45,6 +45,25 @@ export default function BiometricCapture({ onComplete }: BiometricCaptureProps) 
   // ============================================
   // 🎥 DÉMARRER LA CAMÉRA
   // ============================================
+  const startGuidance = useCallback(() => {
+    const guidanceByStep: Record<CaptureType, string[]> = {
+      FACE: ['Placez votre visage dans le cercle ovale', 'Regardez droit devant vous', 'Gardez une expression neutre', 'Assurez-vous d\'avoir un bon éclairage', '✅ Position parfaite ! Cliquez pour capturer.'],
+      PROFIL_GAUCHE: ['Tournez votre tête vers la GAUCHE', 'Montrez votre profil gauche complet', 'Gardez les épaules droites', 'Ne bougez plus...', '✅ Position parfaite ! Cliquez pour capturer.'],
+      PROFIL_DROIT: ['Tournez votre tête vers la DROITE', 'Montrez votre profil droit complet', 'Gardez les épaules droites', 'Ne bougez plus...', '✅ Position parfaite ! Cliquez pour capturer.'],
+    };
+    const steps = guidanceByStep[currentStep];
+    let stepIndex = 0;
+    setAiGuidance(steps[0]);
+    const interval = window.setInterval(() => {
+      stepIndex++;
+      if (stepIndex < steps.length) {
+        setAiGuidance(steps[stepIndex]);
+        if (stepIndex === steps.length - 1) setStatus('CAPTURING');
+      } else clearInterval(interval);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [currentStep]);
+
   const startCamera = useCallback(async () => {
     setError('');
     setStatus('GUIDING');
@@ -71,7 +90,7 @@ export default function BiometricCapture({ onComplete }: BiometricCaptureProps) 
       setError("Impossible d'accéder à la caméra. Vérifiez les permissions.");
       setStatus('ERROR');
     }
-  }, []);
+  }, [startGuidance]);
 
   // ============================================
   // 🛑 ARRÊTER LA CAMÉRA
@@ -85,54 +104,6 @@ export default function BiometricCapture({ onComplete }: BiometricCaptureProps) 
     setStatus('IDLE');
     setAiGuidance('');
   }, []);
-
-  // ============================================
-  // 🤖 GUIDAGE IA
-  // ============================================
-  const startGuidance = () => {
-    const guidanceByStep: Record<CaptureType, string[]> = {
-      'FACE': [
-        'Placez votre visage dans le cercle ovale',
-        'Regardez droit devant vous',
-        'Gardez une expression neutre',
-        'Assurez-vous d\'avoir un bon éclairage',
-        '✅ Position parfaite ! Cliquez pour capturer.'
-      ],
-      'PROFIL_GAUCHE': [
-        'Tournez votre tête vers la GAUCHE',
-        'Montrez votre profil gauche complet',
-        'Gardez les épaules droites',
-        'Ne bougez plus...',
-        '✅ Position parfaite ! Cliquez pour capturer.'
-      ],
-      'PROFIL_DROIT': [
-        'Tournez votre tête vers la DROITE',
-        'Montrez votre profil droit complet',
-        'Gardez les épaules droites',
-        'Ne bougez plus...',
-        '✅ Position parfaite ! Cliquez pour capturer.'
-      ],
-    };
-
-    const steps = guidanceByStep[currentStep];
-    let stepIndex = 0;
-
-    setAiGuidance(steps[0]);
-
-    const interval = setInterval(() => {
-      stepIndex++;
-      if (stepIndex < steps.length) {
-        setAiGuidance(steps[stepIndex]);
-        if (stepIndex === steps.length - 1) {
-          setStatus('CAPTURING');
-        }
-      } else {
-        clearInterval(interval);
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  };
 
   // ============================================
   // 📸 CAPTURER LA PHOTO

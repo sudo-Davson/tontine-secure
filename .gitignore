@@ -43,3 +43,6 @@ Thumbs.db
 *.key
 *.crt
 secrets.json
+.npm-cache/
+
+/lib/generated/prisma

@@ -3,13 +3,19 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import { useAuth } from '../../../../context/AuthContext';
 import { tontineService, REGLES } from '../../../../lib/services/tontine-service';
 import { 
-  Wallet, 
+  frequenceService, 
+  FrequenceConfig,
+  TypeFrequence,
+  JourSemaine,
+  SemaineDuMois 
+} from '../../../../lib/services/frequence-service';
+import { 
   Users, 
   Calendar, 
-  Shield, 
   ChevronRight,
   ChevronLeft,
   CheckCircle,
@@ -22,57 +28,57 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Info
+  Info,
+  Loader2
 } from 'lucide-react';
 
-// Types de fréquence
-const frequences = [
+// ============================================
+// CONSTANTES
+// ============================================
+const typesFrequence = [
+  { id: 'JOURNALIERE', label: 'Journalière', description: 'Tous les jours' },
   { id: 'HEBDOMADAIRE', label: 'Hebdomadaire', description: 'Chaque semaine' },
   { id: 'BIHEBDOMADAIRE', label: 'Bi-hebdomadaire', description: 'Toutes les 2 semaines' },
-  { id: 'MENSUEL', label: 'Mensuel', description: 'Chaque mois' },
-  { id: 'TRIMESTRIEL', label: 'Trimestriel', description: 'Tous les 3 mois' },
+  { id: 'MENSUELLE', label: 'Mensuelle', description: 'Chaque mois' },
+  { id: 'BIMENSUELLE', label: 'Bimensuelle', description: 'Tous les 2 mois' },
+  { id: 'TRIMESTRIELLE', label: 'Trimestrielle', description: 'Tous les 3 mois' },
+  { id: 'SEMESTRIELLE', label: 'Semestrielle', description: 'Tous les 6 mois' },
+  { id: 'ANNUELLE', label: 'Annuelle', description: 'Chaque année' },
+  { id: 'PERSONNALISEE', label: 'Personnalisée', description: 'Intervalle personnalisé' },
 ];
 
-// Modes de rotation
+const joursSemaine = [
+  { id: 'LUNDI', label: 'Lundi' },
+  { id: 'MARDI', label: 'Mardi' },
+  { id: 'MERCREDI', label: 'Mercredi' },
+  { id: 'JEUDI', label: 'Jeudi' },
+  { id: 'VENDREDI', label: 'Vendredi' },
+  { id: 'SAMEDI', label: 'Samedi' },
+  { id: 'DIMANCHE', label: 'Dimanche' },
+];
+
+const semainesDuMois = [
+  { id: 'PREMIERE', label: '1er' },
+  { id: 'DEUXIEME', label: '2ème' },
+  { id: 'TROISIEME', label: '3ème' },
+  { id: 'QUATRIEME', label: '4ème' },
+  { id: 'DERNIERE', label: 'Dernier' },
+];
+
 const modesRotation = [
-  { 
-    id: 'ALEATOIRE', 
-    label: 'Aléatoire', 
-    description: 'L\'ordre des bénéficiaires est tiré au sort',
-    icon: Shuffle 
-  },
-  { 
-    id: 'ORDRE_FIXE', 
-    label: 'Ordre fixe', 
-    description: 'L\'ordre est défini à l\'avance',
-    icon: Repeat 
-  },
-  { 
-    id: 'ENCHERES', 
-    label: 'Enchères', 
-    description: 'Le membre qui propose le plus reçoit le tour',
-    icon: Trophy 
-  },
+  { id: 'ALEATOIRE', label: 'Aléatoire', description: 'L\'ordre des bénéficiaires est tiré au sort', icon: Shuffle },
+  { id: 'ORDRE_FIXE', label: 'Ordre fixe', description: 'L\'ordre est défini à l\'avance', icon: Repeat },
+  { id: 'ENCHERES', label: 'Enchères', description: 'Le membre qui propose le plus reçoit le tour', icon: Trophy },
 ];
 
-// Méthodes de paiement
 const methodesPaiement = [
-  { 
-    id: 'TMONEY', 
-    label: 'Tmoney (Mixx by Yas)', 
-    description: 'Paiement via Tmoney',
-    couleur: 'bg-blue-600',
-    icone: Smartphone 
-  },
-  { 
-    id: 'FLOOZ', 
-    label: 'Flooz (Moov Money)', 
-    description: 'Paiement via Flooz',
-    couleur: 'bg-yellow-500',
-    icone: Smartphone 
-  },
+  { id: 'TMONEY', label: 'Tmoney (Mixx by Yas)', description: 'Paiement via Tmoney', couleur: 'bg-blue-600', icone: Smartphone },
+  { id: 'FLOOZ', label: 'Flooz (Moov Money)', description: 'Paiement via Flooz', couleur: 'bg-yellow-500', icone: Smartphone },
 ];
 
+// ============================================
+// COMPOSANT PRINCIPAL
+// ============================================
 export default function CreerTontinePage() {
   const router = useRouter();
   const { kycLevel, user } = useAuth();
@@ -84,23 +90,23 @@ export default function CreerTontinePage() {
   const [canCreate, setCanCreate] = useState(true);
   
   const [formData, setFormData] = useState({
-    // Étape 1 : Informations générales
     nom: '',
     description: '',
-    type: 'EPARGNE', // EPARGNE, CREDIT, MIXTE
-    
-    // Étape 2 : Paramètres financiers
+    type: 'EPARGNE',
     montantCotisation: '',
-    frequence: 'MENSUEL',
     nombreMembres: '',
     modeRotation: 'ALEATOIRE',
-    
-    // Étape 3 : Méthodes de paiement
+    frequence: {
+      type: 'MENSUELLE' as TypeFrequence,
+      jourSemaine: 'LUNDI' as JourSemaine,
+      jourDuMois: 1,
+      intervalleJours: 7,
+      semaineDuMois: 'PREMIERE' as SemaineDuMois,
+      utiliserSemaineDuMois: false,
+    } as FrequenceConfig,
     methodePaiement: 'TMONEY',
     numeroTmoney: '',
     numeroFlooz: '',
-    
-    // Étape 4 : Règles de sécurité
     codePin: '',
     confirmationPin: '',
     reglesSecurite: {
@@ -116,15 +122,15 @@ export default function CreerTontinePage() {
   useEffect(() => {
     const verification = tontineService.canCreateTontine({
       kycLevel: kycLevel,
-      reputation: user?.reputation || 85, // À remplacer par la vraie réputation
-      tontinesActives: user?.tontinesActives || 1, // À remplacer par le vrai nombre
+      reputation: user?.reputation || 85,
+      tontinesActives: 0,
     });
 
     if (!verification.success) {
       setCanCreate(false);
       setError(verification.message);
     }
-  }, [kycLevel, user, router]);
+  }, [kycLevel, user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -141,12 +147,34 @@ export default function CreerTontinePage() {
     });
   };
 
+  const updateFrequence = (updates: Partial<FrequenceConfig>) => {
+    setFormData({
+      ...formData,
+      frequence: { ...formData.frequence, ...updates },
+    });
+  };
+
+  // ============================================
+  // CALCULS
+  // ============================================
+  const montantTotalParTour = formData.montantCotisation && formData.nombreMembres
+    ? parseInt(formData.montantCotisation) * parseInt(formData.nombreMembres)
+    : 0;
+
+  const frequenceLabel = frequenceService.getLibelleFrequence(formData.frequence);
+  const nombreCotisationsParAn = frequenceService.getNombreCotisationsParAn(formData.frequence);
+  const montantTotalParAn = montantTotalParTour * nombreCotisationsParAn;
+  const prochainesDates = frequenceService.calculerProchainesDates(formData.frequence, 3);
+
+  // ============================================
+  // VALIDATION
+  // ============================================
   const validateStep = () => {
     setError('');
 
     if (step === 1) {
       if (formData.nom.length < 3) {
-        setError('Le nom de la tontine doit contenir au moins 3 caractères');
+        setError('Le nom doit contenir au moins 3 caractères');
         return false;
       }
       if (formData.description.length < 10) {
@@ -157,7 +185,7 @@ export default function CreerTontinePage() {
 
     if (step === 2) {
       if (!formData.montantCotisation || parseInt(formData.montantCotisation) < 100) {
-        setError('Le montant de cotisation doit être au moins 100 FCFA');
+        setError('Le montant minimum est de 100 FCFA');
         return false;
       }
       if (!formData.nombreMembres || parseInt(formData.nombreMembres) < 2) {
@@ -165,8 +193,14 @@ export default function CreerTontinePage() {
         return false;
       }
       if (parseInt(formData.nombreMembres) > 50) {
-        setError('Le nombre de membres ne peut pas dépasser 50');
+        setError('Maximum 50 membres');
         return false;
+      }
+      if (formData.frequence.type === 'PERSONNALISEE') {
+        if (!formData.frequence.intervalleJours || formData.frequence.intervalleJours < 1) {
+          setError('L\'intervalle doit être au moins 1 jour');
+          return false;
+        }
       }
     }
 
@@ -196,61 +230,75 @@ export default function CreerTontinePage() {
   };
 
   const handleNext = () => {
-    if (validateStep()) {
-      setStep(step + 1);
+    if (validateStep()) setStep(step + 1);
+  };
+
+  // ============================================
+  // SOUMISSION À L'API
+  // ============================================
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateStep()) return;
+
+    setIsSubmitting(true);
+
+    try {
+      const payload = {
+        nom: formData.nom,
+        description: formData.description,
+        type: formData.type,
+        montant: parseFloat(formData.montantCotisation),
+        frequence: formData.frequence.type,
+        frequenceConfig: formData.frequence,
+        nombreMembres: parseInt(formData.nombreMembres),
+        modeRotation: formData.modeRotation,
+        methodePaiement: formData.methodePaiement,
+        numeroCollecte: formData.methodePaiement === 'TMONEY'
+          ? formData.numeroTmoney
+          : formData.numeroFlooz,
+        codePin: formData.codePin,
+        reglesSecurite: formData.reglesSecurite,
+      };
+
+      const response = await fetch('/api/tontines', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('Tontine créée avec succès !');
+        setTimeout(() => {
+          router.push(`/tontines/${data.tontine.id}`);
+        }, 1500);
+      } else {
+        setError(data.error || 'Erreur lors de la création');
+        toast.error(data.error || 'Erreur lors de la création');
+        setIsSubmitting(false);
+      }
+    } catch (error: any) {
+      console.error('Erreur:', error);
+      setError('Erreur réseau');
+      toast.error('Erreur réseau');
+      setIsSubmitting(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateStep()) return;
-    
-    setIsSubmitting(true);
-
-    // ============================================
-    // 🚀 BACKEND : ICI ON ENVERRA LES DONNÉES
-    // ============================================
-    // const tontineData = {
-    //   nom: formData.nom,
-    //   description: formData.description,
-    //   type: formData.type,
-    //   montantCotisation: formData.montantCotisation,
-    //   frequence: formData.frequence,
-    //   nombreMembres: formData.nombreMembres,
-    //   modeRotation: formData.modeRotation,
-    //   methodePaiement: formData.methodePaiement,
-    //   numeroTmoney: formData.numeroTmoney,
-    //   numeroFlooz: formData.numeroFlooz,
-    //   codePin: formData.codePin,
-    //   reglesSecurite: formData.reglesSecurite,
-    // };
-    //
-    // const response = await fetch('/api/tontines/creer', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(tontineData),
-    // });
-    // ============================================
-
-    setTimeout(() => {
-      setIsSubmitting(false);
-      alert('✅ Tontine créée avec succès !');
-      router.push('/tontines');
-    }, 2000);
-  };
-
+  // ============================================
+  // STYLES
+  // ============================================
   const inputClassName = "w-full px-3 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-gray-500 bg-white font-medium dark:bg-gray-800 dark:border-gray-600 dark:text-white";
   const labelClassName = "block text-sm font-bold text-gray-900 mb-2 dark:text-white";
 
-  const steps = [
-    'Informations',
-    'Paramètres',
-    'Paiement',
-    'Sécurité',
-  ];
+  const steps = ['Informations', 'Paramètres', 'Paiement', 'Sécurité'];
 
-  // Si l'utilisateur ne peut pas créer de tontine
+  // ============================================
+  // SI L'UTILISATEUR NE PEUT PAS CRÉER
+  // ============================================
   if (!canCreate) {
     return (
       <div className="max-w-2xl mx-auto">
@@ -269,6 +317,9 @@ export default function CreerTontinePage() {
     );
   }
 
+  // ============================================
+  // RENDU
+  // ============================================
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
@@ -286,13 +337,13 @@ export default function CreerTontinePage() {
           <div>
             <h3 className="font-bold text-gray-900">Sécurité des fonds</h3>
             <p className="text-sm text-gray-700 font-medium mt-1">
-              Les cotisations seront conservées dans un compte séquestre sécurisé jusqu'à la distribution au bénéficiaire du tour.
+              Les cotisations seront conservées dans un compte séquestre sécurisé jusqu'à la distribution.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Progress Steps */}
+      {/* Progress */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
           {steps.map((label, index) => (
@@ -310,9 +361,7 @@ export default function CreerTontinePage() {
                 <span className="text-xs font-bold text-gray-900 mt-2 hidden md:block dark:text-white">{label}</span>
               </div>
               {index < 3 && (
-                <div className={`flex-1 h-1 mx-2 ${
-                  step > index + 1 ? 'bg-green-500' : 'bg-gray-200'
-                }`} />
+                <div className={`flex-1 h-1 mx-2 ${step > index + 1 ? 'bg-green-500' : 'bg-gray-200'}`} />
               )}
             </div>
           ))}
@@ -333,11 +382,10 @@ export default function CreerTontinePage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* ========== ÉTAPE 1 : INFORMATIONS GÉNÉRALES ========== */}
+        {/* ========== ÉTAPE 1 ========== */}
         {step === 1 && (
-          <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-600">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border-2 border-gray-200 dark:border-gray-600 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4 dark:text-white">Informations générales</h2>
-            
             <div className="space-y-4">
               <div>
                 <label className={labelClassName}>Nom de la tontine *</label>
@@ -348,10 +396,8 @@ export default function CreerTontinePage() {
                   onChange={handleChange}
                   className={inputClassName}
                   placeholder="Ex: Tontine des Amis 2026"
-                  style={{ color: '#000000' }}
                 />
               </div>
-
               <div>
                 <label className={labelClassName}>Description *</label>
                 <textarea
@@ -361,34 +407,25 @@ export default function CreerTontinePage() {
                   rows={3}
                   className={inputClassName}
                   placeholder="Décrivez le but de cette tontine..."
-                  style={{ color: '#000000' }}
                 />
               </div>
-
               <div>
                 <label className={labelClassName}>Type de tontine</label>
-                <select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleChange}
-                  className={inputClassName}
-                  style={{ color: '#000000' }}
-                >
+                <select name="type" value={formData.type} onChange={handleChange} className={inputClassName}>
                   <option value="EPARGNE">Épargne simple</option>
                   <option value="CREDIT">Crédit rotatif</option>
-                  <option value="MIXTE">Mixte (épargne + crédit)</option>
+                  <option value="MIXTE">Mixte</option>
                 </select>
               </div>
             </div>
           </div>
         )}
 
-        {/* ========== ÉTAPE 2 : PARAMÈTRES FINANCIERS ========== */}
+        {/* ========== ÉTAPE 2 ========== */}
         {step === 2 && (
-          <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-600">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border-2 border-gray-200 dark:border-gray-600 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4 dark:text-white">Paramètres financiers</h2>
-            
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
                 <label className={labelClassName}>Montant de cotisation (FCFA) *</label>
                 <div className="relative">
@@ -401,34 +438,7 @@ export default function CreerTontinePage() {
                     className={`${inputClassName} pl-10`}
                     placeholder="Ex: 5000"
                     min="100"
-                    style={{ color: '#000000' }}
                   />
-                </div>
-                <p className="text-xs text-gray-700 font-medium mt-1 dark:text-gray-300">
-                  Montant total par tour : {formData.montantCotisation && formData.nombreMembres 
-                    ? `${(parseInt(formData.montantCotisation) * parseInt(formData.nombreMembres)).toLocaleString()} FCFA` 
-                    : 'Remplissez les champs pour voir le calcul'}
-                </p>
-              </div>
-
-              <div>
-                <label className={labelClassName}>Fréquence de cotisation *</label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {frequences.map((freq) => (
-                    <button
-                      key={freq.id}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, frequence: freq.id })}
-                      className={`p-3 border-2 rounded-lg text-center transition-colors ${
-                        formData.frequence === freq.id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'
-                          : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'
-                      }`}
-                    >
-                      <Calendar className={`h-6 w-6 mx-auto mb-1 ${formData.frequence === freq.id ? 'text-blue-600' : 'text-gray-400'}`} />
-                      <p className="text-xs font-bold text-gray-900 dark:text-white">{freq.label}</p>
-                    </button>
-                  ))}
                 </div>
               </div>
 
@@ -445,10 +455,136 @@ export default function CreerTontinePage() {
                     placeholder="Ex: 10"
                     min="2"
                     max="50"
-                    style={{ color: '#000000' }}
                   />
                 </div>
               </div>
+
+              <div>
+                <label className={labelClassName}>Type de fréquence *</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {typesFrequence.map((freq) => (
+                    <button
+                      key={freq.id}
+                      type="button"
+                      onClick={() => updateFrequence({ type: freq.id as TypeFrequence })}
+                      className={`p-3 border-2 rounded-lg text-center transition-colors ${
+                        formData.frequence.type === freq.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Calendar className={`h-5 w-5 mx-auto mb-1 ${formData.frequence.type === freq.id ? 'text-blue-600' : 'text-gray-400'}`} />
+                      <p className="text-xs font-bold text-gray-900">{freq.label}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {(formData.frequence.type === 'HEBDOMADAIRE' || formData.frequence.type === 'BIHEBDOMADAIRE') && (
+                <div>
+                  <label className={labelClassName}>Jour de la semaine *</label>
+                  <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
+                    {joursSemaine.map((jour) => (
+                      <button
+                        key={jour.id}
+                        type="button"
+                        onClick={() => updateFrequence({ jourSemaine: jour.id as JourSemaine })}
+                        className={`p-2 border-2 rounded-lg text-center transition-colors ${
+                          formData.frequence.jourSemaine === jour.id
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <p className="text-xs font-bold text-gray-900">{jour.label}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {['MENSUELLE', 'BIMENSUELLE', 'TRIMESTRIELLE', 'SEMESTRIELLE', 'ANNUELLE'].includes(formData.frequence.type) && (
+                <div className="space-y-4">
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={!formData.frequence.utiliserSemaineDuMois}
+                        onChange={() => updateFrequence({ utiliserSemaineDuMois: false })}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm font-bold text-gray-900">Jour du mois</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={formData.frequence.utiliserSemaineDuMois}
+                        onChange={() => updateFrequence({ utiliserSemaineDuMois: true })}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm font-bold text-gray-900">Semaine du mois</span>
+                    </label>
+                  </div>
+
+                  {!formData.frequence.utiliserSemaineDuMois && (
+                    <div>
+                      <label className={labelClassName}>Jour du mois (1-31) *</label>
+                      <input
+                        type="number"
+                        value={formData.frequence.jourDuMois || 1}
+                        onChange={(e) => updateFrequence({ jourDuMois: parseInt(e.target.value) })}
+                        className={inputClassName}
+                        min="1"
+                        max="31"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {formData.frequence.type === 'PERSONNALISEE' && (
+                <div>
+                  <label className={labelClassName}>Intervalle en jours *</label>
+                  <input
+                    type="number"
+                    value={formData.frequence.intervalleJours || 7}
+                    onChange={(e) => updateFrequence({ intervalleJours: parseInt(e.target.value) })}
+                    className={inputClassName}
+                    min="1"
+                  />
+                </div>
+              )}
+
+              {/* Récapitulatif */}
+              {montantTotalParTour > 0 && (
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                  <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <Info className="h-5 w-5 text-blue-600" />
+                    Récapitulatif automatique
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+                    <div>
+                      <p className="text-xs text-gray-600 font-bold">Fréquence</p>
+                      <p className="text-sm font-bold text-gray-900">{frequenceLabel}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 font-bold">Montant par tour</p>
+                      <p className="text-sm font-bold text-gray-900">{montantTotalParTour.toLocaleString()} FCFA</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 font-bold">Total/an</p>
+                      <p className="text-sm font-bold text-gray-900">{montantTotalParAn.toLocaleString()} FCFA</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t-2 border-blue-200">
+                    <p className="text-xs text-gray-600 font-bold mb-2">Prochaines dates :</p>
+                    {prochainesDates.map((date, i) => (
+                      <p key={i} className="text-sm font-medium text-gray-900">
+                        • {frequenceService.formaterDate(date)}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className={labelClassName}>Mode de rotation *</label>
@@ -462,13 +598,13 @@ export default function CreerTontinePage() {
                         onClick={() => setFormData({ ...formData, modeRotation: mode.id })}
                         className={`p-4 border-2 rounded-lg text-center transition-colors ${
                           formData.modeRotation === mode.id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'
-                            : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
                         <Icon className={`h-8 w-8 mx-auto mb-2 ${formData.modeRotation === mode.id ? 'text-blue-600' : 'text-gray-400'}`} />
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{mode.label}</p>
-                        <p className="text-xs text-gray-700 font-medium mt-1 dark:text-gray-300">{mode.description}</p>
+                        <p className="text-sm font-bold text-gray-900">{mode.label}</p>
+                        <p className="text-xs text-gray-700 font-medium mt-1">{mode.description}</p>
                       </button>
                     );
                   })}
@@ -478,11 +614,10 @@ export default function CreerTontinePage() {
           </div>
         )}
 
-        {/* ========== ÉTAPE 3 : MÉTHODES DE PAIEMENT ========== */}
+        {/* ========== ÉTAPE 3 ========== */}
         {step === 3 && (
-          <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-600">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border-2 border-gray-200 dark:border-gray-600 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4 dark:text-white">Méthodes de paiement</h2>
-            
             <div className="space-y-4">
               <div>
                 <label className={labelClassName}>Choisissez votre opérateur *</label>
@@ -496,15 +631,14 @@ export default function CreerTontinePage() {
                         onClick={() => setFormData({ ...formData, methodePaiement: methode.id })}
                         className={`p-4 border-2 rounded-lg transition-colors ${
                           formData.methodePaiement === methode.id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'
-                            : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
                         <div className={`h-10 w-10 rounded-full ${methode.couleur} flex items-center justify-center mx-auto mb-2`}>
                           <Icon className="h-5 w-5 text-white" />
                         </div>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{methode.label}</p>
-                        <p className="text-xs text-gray-700 font-medium mt-1 dark:text-gray-300">{methode.description}</p>
+                        <p className="text-sm font-bold text-gray-900">{methode.label}</p>
                       </button>
                     );
                   })}
@@ -523,12 +657,8 @@ export default function CreerTontinePage() {
                       onChange={handleChange}
                       className={`${inputClassName} pl-10`}
                       placeholder="Ex: 90 XX XX XX XX"
-                      style={{ color: '#000000' }}
                     />
                   </div>
-                  <p className="text-xs text-gray-700 font-medium mt-1 dark:text-gray-300">
-                    L'argent sera versé sur ce numéro lors de la distribution
-                  </p>
                 </div>
               )}
 
@@ -544,36 +674,29 @@ export default function CreerTontinePage() {
                       onChange={handleChange}
                       className={`${inputClassName} pl-10`}
                       placeholder="Ex: 90 XX XX XX XX"
-                      style={{ color: '#000000' }}
                     />
                   </div>
-                  <p className="text-xs text-gray-700 font-medium mt-1 dark:text-gray-300">
-                    L'argent sera versé sur ce numéro lors de la distribution
-                  </p>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* ========== ÉTAPE 4 : RÈGLES DE SÉCURITÉ ========== */}
+        {/* ========== ÉTAPE 4 ========== */}
         {step === 4 && (
-          <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-600">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border-2 border-gray-200 dark:border-gray-600 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4 dark:text-white">Règles de sécurité</h2>
-            
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <input
                   type="checkbox"
                   checked={formData.reglesSecurite.verificationIdentite}
                   onChange={() => handleToggle('verificationIdentite')}
-                  className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600"
                 />
                 <div>
-                  <p className="font-bold text-gray-900 dark:text-white">Vérification d'identité obligatoire</p>
-                  <p className="text-sm text-gray-700 font-medium dark:text-gray-300">
-                    Tous les membres doivent être vérifiés (KYC Niveau 2)
-                  </p>
+                  <p className="font-bold text-gray-900">Vérification d'identité obligatoire</p>
+                  <p className="text-sm text-gray-700 font-medium">Tous les membres doivent être vérifiés (KYC 2)</p>
                 </div>
               </div>
 
@@ -582,13 +705,11 @@ export default function CreerTontinePage() {
                   type="checkbox"
                   checked={formData.reglesSecurite.multiSignatures}
                   onChange={() => handleToggle('multiSignatures')}
-                  className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600"
                 />
                 <div>
-                  <p className="font-bold text-gray-900 dark:text-white">Validation multi-signatures</p>
-                  <p className="text-sm text-gray-700 font-medium dark:text-gray-300">
-                    Les transactions importantes nécessitent plusieurs validations
-                  </p>
+                  <p className="font-bold text-gray-900">Validation multi-signatures</p>
+                  <p className="text-sm text-gray-700 font-medium">Transactions importantes = plusieurs validations</p>
                 </div>
               </div>
 
@@ -603,7 +724,6 @@ export default function CreerTontinePage() {
                       reglesSecurite: { ...formData.reglesSecurite, penaliteRetard: e.target.value }
                     })}
                     className={inputClassName}
-                    style={{ color: '#000000' }}
                   />
                 </div>
                 <div>
@@ -616,7 +736,6 @@ export default function CreerTontinePage() {
                       reglesSecurite: { ...formData.reglesSecurite, delaiGrace: e.target.value }
                     })}
                     className={inputClassName}
-                    style={{ color: '#000000' }}
                   />
                 </div>
               </div>
@@ -633,7 +752,6 @@ export default function CreerTontinePage() {
                     className={`${inputClassName} pl-10`}
                     placeholder="••••"
                     maxLength={4}
-                    style={{ color: '#000000' }}
                   />
                   <button
                     type="button"
@@ -643,9 +761,6 @@ export default function CreerTontinePage() {
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
-                <p className="text-xs text-gray-700 font-medium mt-1 dark:text-gray-300">
-                  4 chiffres pour confirmer les transactions
-                </p>
               </div>
 
               <div>
@@ -658,7 +773,6 @@ export default function CreerTontinePage() {
                   className={inputClassName}
                   placeholder="••••"
                   maxLength={4}
-                  style={{ color: '#000000' }}
                 />
               </div>
             </div>
@@ -677,7 +791,7 @@ export default function CreerTontinePage() {
               Retour
             </button>
           )}
-          
+
           {step < 4 ? (
             <button
               type="button"
@@ -691,13 +805,20 @@ export default function CreerTontinePage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`flex-1 py-3 px-4 rounded-lg font-bold transition-colors ${
+              className={`flex-1 py-3 px-4 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 ${
                 isSubmitting
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
             >
-              {isSubmitting ? 'Création...' : 'Créer la tontine'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Création...
+                </>
+              ) : (
+                'Créer la tontine'
+              )}
             </button>
           )}
         </div>

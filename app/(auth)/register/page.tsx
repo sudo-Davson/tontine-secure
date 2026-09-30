@@ -1,11 +1,10 @@
-﻿// app/(auth)/register/page.tsx - VERSION FINALE CORRIGÉE
-
+﻿// app/(auth)/register/page.tsx
 'use client';
-
+import toast from 'react-hot-toast';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Wallet, Mail, Lock, User, Phone, Shield, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Wallet, Mail, Lock, User, Phone, Shield, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 
 export default function RegisterPage() {
@@ -25,7 +24,6 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Classes pour les champs avec texte NOIR visible
   const inputClassName = "w-full pl-10 pr-3 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-gray-500 bg-white font-medium";
   const inputNoIconClassName = "w-full px-3 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-gray-500 bg-white font-medium";
   const labelClassName = "block text-sm font-bold text-gray-900 mb-2";
@@ -38,10 +36,10 @@ export default function RegisterPage() {
     });
   };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (formData.password !== formData.confirmPassword) {
       setError('Les mots de passe ne correspondent pas !');
       return;
@@ -57,7 +55,7 @@ export default function RegisterPage() {
 
     setIsLoading(true);
 
-    const success = await register({
+    const result = await register({
       firstName: formData.firstName,
       lastName: formData.lastName,
       email: formData.email,
@@ -65,13 +63,15 @@ export default function RegisterPage() {
       password: formData.password,
     });
 
-    if (success) {
-      setIsLoading(false);
-      alert('Inscription réussie ! Redirection vers la vérification...');
-      router.push('/verification/niveau-1');
+    if (result.success) {
+      toast.success('Inscription réussie ! Redirection...');
+      setTimeout(() => {
+        router.push('/verification/niveau-1');
+      }, 1500);
     } else {
       setIsLoading(false);
-      setError("Erreur lors de l'inscription");
+      setError(result.error || "Erreur lors de l'inscription");
+      toast.error(result.error || "Erreur lors de l'inscription");
     }
   };
 
@@ -299,8 +299,8 @@ export default function RegisterPage() {
                     type="submit"
                     disabled={isLoading}
                     className={`flex-1 py-3 px-4 rounded-lg font-bold transition-colors ${
-                      isLoading 
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                      isLoading
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                   >

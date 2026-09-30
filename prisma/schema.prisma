@@ -1,0 +1,292 @@
+// prisma/schema.prisma
+// Schéma de base de données - TontineSecure
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// UTILISATEURS
+// ============================================
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  phoneNumber     String    @unique
+  password        String
+  firstName       String
+  lastName        String
+  dateOfBirth     DateTime?
+  
+  // KYC
+  kycLevel        Int       @default(0)
+  kycStatus       String    @default("PENDING")
+  isVerified      Boolean   @default(false)
+  
+  // Réputation
+  reputation      Float     @default(85)
+  
+  // Abonnement
+  abonnement      String    @default("GRATUIT")
+  
+  // Profil
+  avatarUrl       String?
+  address         String?
+  
+  // Relations
+  tontinesCreated Tontine[] @relation("TontineCreator")
+  memberships     Member[]
+  cotisations     Cotisation[]
+  paiements       Paiement[]
+  notifications   Notification[]
+  invitationsSent Invitation[] @relation("InvitationSender")
+  sessions        Session[]
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("users")
+}
+
+// ============================================
+// TONTINES
+// ============================================
+
+model Tontine {
+  id              String    @id @default(cuid())
+  nom             String
+  description     String?
+  type            String    @default("EPARGNE")
+  
+  // Paramètres financiers
+  montant         Float
+  frequence       String
+  frequenceConfig String    @default("{}")
+  nombreMembres   Int
+  nombreTours     Int
+  
+  // Rotation
+  modeRotation    String    @default("ALEATOIRE")
+  
+  // Statut
+  statut          String    @default("EN_ATTENTE")
+  tourActuel      Int       @default(0)
+  
+  // Montants
+  montantCollecte Float     @default(0)
+  montantTotal    Float     @default(0)
+  
+  // Paiement
+  methodePaiement String
+  numeroCollecte  String?
+  
+  // Sécurité
+  codePin         String?
+  reglesSecurite  String    @default("{}")
+  
+  // Dates
+  dateDebut       DateTime?
+  dateFin         DateTime?
+  
+  // Relations
+  createurId      String
+  createur        User      @relation("TontineCreator", fields: [createurId], references: [id])
+  membres         Member[]
+  cotisations     Cotisation[]
+  tours           Tour[]
+  invitations     Invitation[]
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("tontines")
+}
+
+// ============================================
+// MEMBRES
+// ============================================
+
+model Member {
+  id          String   @id @default(cuid())
+  tontineId   String
+  userId      String
+  role        String   @default("MEMBRE")
+  statut      String   @default("ACTIF")
+  ordreTour   Int?
+  reputation  Float    @default(85)
+  nbRetards   Int      @default(0)
+  nbAbsences  Int      @default(0)
+  toursRecus  Int      @default(0)
+  
+  tontine     Tontine  @relation(fields: [tontineId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([tontineId, userId])
+  @@map("members")
+}
+
+// ============================================
+// COTISATIONS
+// ============================================
+
+model Cotisation {
+  id              String   @id @default(cuid())
+  tontineId       String
+  userId          String
+  tourId          String?
+  montant         Float
+  statut          String   @default("EN_ATTENTE")
+  dateEcheance    DateTime
+  datePaiement    DateTime?
+  methodePaiement String?
+  reference       String?
+  penalite        Float    @default(0)
+  
+  tontine         Tontine  @relation(fields: [tontineId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tour            Tour?    @relation(fields: [tourId], references: [id])
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("cotisations")
+}
+
+// ============================================
+// TOURS
+// ============================================
+
+model Tour {
+  id              String   @id @default(cuid())
+  tontineId       String
+  numero          Int
+  beneficiaireId  String?
+  montant         Float
+  statut          String   @default("EN_ATTENTE")
+  dateDebut       DateTime?
+  dateFin         DateTime?
+  datePaiement    DateTime?
+  
+  tontine         Tontine  @relation(fields: [tontineId], references: [id], onDelete: Cascade)
+  cotisations     Cotisation[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("tours")
+}
+
+// ============================================
+// PAIEMENTS
+// ============================================
+
+model Paiement {
+  id          String   @id @default(cuid())
+  userId      String
+  tontineId   String?
+  montant     Float
+  type        String
+  statut      String   @default("EN_ATTENTE")
+  methode     String
+  reference   String   @unique
+  telephone   String?
+  description String?
+  metadata    String   @default("{}")
+  
+  user        User     @relation(fields: [userId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("paiements")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  titre     String
+  message   String
+  type      String
+  lien      String?
+  lu        Boolean  @default(false)
+  data      String   @default("{}")
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@map("notifications")
+}
+
+// ============================================
+// INVITATIONS
+// ============================================
+
+model Invitation {
+  id          String   @id @default(cuid())
+  tontineId   String
+  senderId    String
+  email       String?
+  telephone   String?
+  code        String   @unique
+  statut      String   @default("EN_ATTENTE")
+  expiresAt   DateTime
+  
+  tontine     Tontine  @relation(fields: [tontineId], references: [id], onDelete: Cascade)
+  sender      User     @relation("InvitationSender", fields: [senderId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("invitations")
+}
+
+// ============================================
+// AUDIT LOGS (Sécurité)
+// ============================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  details   String   @default("{}")
+  ipAddress String?
+  
+  createdAt DateTime @default(now())
+  
+  @@map("audit_logs")
+}
+
+// ============================================
+// SESSION (Sécurité)
+// ============================================
+
+model Session {
+  id          String   @id @default(cuid())
+  userId      String
+  token       String   @unique
+  userAgent   String?
+  ipAddress   String?
+  isActive    Boolean  @default(true)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  revokedAt   DateTime?
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}

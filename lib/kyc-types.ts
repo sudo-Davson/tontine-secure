@@ -66,5 +66,5 @@ export interface VerificationResult {
   status: VerificationStatus;
   message: string;
   score?: number;
-  details?: any;
+  details?: Record<string, unknown>;
 }

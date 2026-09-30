@@ -1,5 +1,5 @@
 // lib/kyc-validation.ts
-import { DocumentType, OCRData } from './kyc-types';
+import { DocumentType, KYCInfo, OCRData } from './kyc-types';
 
 export function validateDocumentType(type: string): DocumentType | null {
   const acceptedTypes: DocumentType[] = ['CNI', 'PASSPORT'];
@@ -71,7 +71,7 @@ export function calculateDocumentAuthScore(documentType: DocumentType, ocrData: 
   return Math.min(score, 100);
 }
 
-export function determineVerificationLevel(userData: any): 1 | 2 | 3 {
+export function determineVerificationLevel(userData: Pick<KYCInfo, 'emailVerified' | 'phoneVerified'>): 1 | 2 | 3 {
   if (userData.emailVerified && userData.phoneVerified) {
     return 1;
   }

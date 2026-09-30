@@ -78,11 +78,6 @@
       "description": "Créer une nouvelle tontine"
     },
     {
-      "name": "Mes cotisations",
-      "url": "/cotisations",
-      "description": "Voir mes cotisations"
-    },
-    {
       "name": "Mon portefeuille",
       "url": "/portefeuille",
       "description": "Voir mon portefeuille"

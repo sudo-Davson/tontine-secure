@@ -1,8 +1,15 @@
+/* app/globals.css */
 @import "tailwindcss";
 
+/* ============================================
+   MODE SOMBRE (Tailwind v4)
+   ============================================ */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ============ CORRECTIONS GLOBALES ============ */
+/* ============================================
+   CORRECTIONS GLOBALES
+   ============================================ */
+
 input, 
 textarea, 
 select {
@@ -25,7 +32,9 @@ h1, h2, h3, h4, h5, h6 {
   color: #111827;
 }
 
-/* ============ MODE SOMBRE ============ */
+/* ============================================
+   MODE SOMBRE
+   ============================================ */
 .dark {
   background-color: #111827;
   color: #ffffff;
@@ -93,4 +102,139 @@ h1, h2, h3, h4, h5, h6 {
 
 .dark .bg-gray-50 {
   background-color: #111827 !important;
+}
+
+/* ============================================
+   RESPONSIVE GLOBAL
+   ============================================ */
+
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+a {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  .p-6 {
+    padding: 1rem !important;
+  }
+  
+  .p-8 {
+    padding: 1.25rem !important;
+  }
+
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  a, button {
+    max-width: 100%;
+    word-wrap: break-word;
+  }
+
+  a[class*="px-6"],
+  button[class*="px-6"] {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  a[class*="px-4"],
+  button[class*="px-4"] {
+    padding-left: 0.625rem !important;
+    padding-right: 0.625rem !important;
+  }
+
+  a[class*="px-8"],
+  button[class*="px-8"] {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .text-4xl {
+    font-size: 1.5rem !important;
+    line-height: 2rem !important;
+  }
+
+  .text-3xl {
+    font-size: 1.375rem !important;
+    line-height: 1.75rem !important;
+  }
+
+  .text-2xl {
+    font-size: 1.125rem !important;
+    line-height: 1.5rem !important;
+  }
+
+  .text-xl {
+    font-size: 1rem !important;
+    line-height: 1.5rem !important;
+  }
+
+  .gap-8 {
+    gap: 1rem !important;
+  }
+
+  .gap-6 {
+    gap: 0.75rem !important;
+  }
+
+  .py-20 {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+  }
+
+  .py-16 {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+
+  .py-12 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  /* Les en-têtes et les groupes d'actions restent lisibles sans sortir de l'écran. */
+  .flex.items-center.justify-between {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .flex.items-center.justify-between > :first-child {
+    min-width: 0;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  [class*="rounded-xl"],
+  [class*="rounded-2xl"] {
+    max-width: 100%;
+  }
+
+  h1, h2, h3 {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .grid-cols-5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
 }

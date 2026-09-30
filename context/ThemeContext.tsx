@@ -15,6 +15,10 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>('LIGHT');
 
+  function applyTheme(nextTheme: Theme) {
+    document.documentElement.classList.toggle('dark', nextTheme === 'DARK');
+  }
+
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as Theme | null;
     if (savedTheme) {
@@ -22,14 +26,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       applyTheme(savedTheme);
     }
   }, []);
-
-  const applyTheme = (theme: Theme) => {
-    if (theme === 'DARK') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
 
   const handleSetTheme = (newTheme: Theme) => {
     setTheme(newTheme);
