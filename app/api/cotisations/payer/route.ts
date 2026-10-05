@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { verifyToken, verifySession, COOKIE_NAME } from '@/lib/auth';
 import { paiementService, MethodePaiement } from '@/lib/services/paiement-service';
+import { tourService } from '@/lib/services/tour-service';
 
 async function getCurrentUser() {
   const cookieStore = await cookies();
@@ -88,7 +89,6 @@ export async function POST(request: Request) {
 
     // 6. Si le paiement échoue
     if (!paiementResult.success) {
-      // Créer une transaction échouée
       await prisma.paiement.create({
         data: {
           userId: user.id,
@@ -163,15 +163,34 @@ export async function POST(request: Request) {
       },
     });
 
+    // ============================================
+    // 11. 🎯 VÉRIFIER SI LE TOUR PEUT ÊTRE CLÔTURÉ
+    // ============================================
+    let clotureTour = null;
+    let messageCloture = '';
+
+    if (cotisation.tourId) {
+      const resultat = await tourService.verifierEtCloturerTour(
+        cotisation.tontineId,
+        cotisation.tourId
+      );
+
+      if (resultat.cloture) {
+        clotureTour = resultat.tour;
+        messageCloture = `\n\n🎉 Le tour n°${resultat.tour?.numero} a été clôturé ! Toutes les cotisations ont été payées.`;
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: paiementResult.isSimulated
+      message: (paiementResult.isSimulated
         ? 'Paiement simulé avec succès (les vraies APIs seront intégrées plus tard)'
-        : 'Paiement effectué avec succès',
+        : 'Paiement effectué avec succès') + messageCloture,
       cotisation: updatedCotisation,
       paiement,
       isSimulated: paiementResult.isSimulated,
       transactionId: paiementResult.transactionId,
+      clotureTour,
     });
   } catch (error: any) {
     console.error('Erreur paiement cotisation :', error);

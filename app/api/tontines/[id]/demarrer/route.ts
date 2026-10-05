@@ -85,7 +85,47 @@ export async function POST(
       );
     }
 
-    if (tontine.membres.length < 2) {
+    // ============================================
+    // 🎯 RÈGLE : NOMBRE DE MEMBRES ATTEINT
+    // ============================================
+    const nombreMembresActuels = tontine.membres.length;
+    const nombreMembresRequis = tontine.nombreMembres;
+
+    if (nombreMembresActuels !== nombreMembresRequis) {
+      const membresManquants = nombreMembresRequis - nombreMembresActuels;
+
+      if (membresManquants > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `La tontine nécessite exactement ${nombreMembresRequis} membres. Actuellement : ${nombreMembresActuels}. Il manque ${membresManquants} membre(s).`,
+            details: {
+              membresRequis: nombreMembresRequis,
+              membresActuels: nombreMembresActuels,
+              membresManquants,
+            },
+          },
+          { status: 400 }
+        );
+      }
+
+      if (membresManquants < 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `La tontine a trop de membres (${nombreMembresActuels}/${nombreMembresRequis}). Veuillez retirer ${Math.abs(membresManquants)} membre(s).`,
+            details: {
+              membresRequis: nombreMembresRequis,
+              membresActuels: nombreMembresActuels,
+              exces: Math.abs(membresManquants),
+            },
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (nombreMembresActuels < 2) {
       return NextResponse.json(
         { success: false, error: 'Il faut au moins 2 membres actifs pour démarrer' },
         { status: 400 }
@@ -132,84 +172,94 @@ export async function POST(
       ordreBeneficiaires = tontine.membres.map((m) => m.userId);
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      await tx.tour.deleteMany({ where: { tontineId: id } });
+    // ============================================
+    // 🚀 TRANSACTION AVEC TIMEOUT AUGMENTÉ
+    // ============================================
+    const result = await prisma.$transaction(
+      async (tx) => {
+        await tx.tour.deleteMany({ where: { tontineId: id } });
 
-      const tours = await Promise.all(
-        Array.from({ length: tontine.nombreTours }, (_, i) => {
-          const numero = i + 1;
-          const estPremier = numero === 1;
-          const beneficiaireId = ordreBeneficiaires[i] || null;
+        const tours = await Promise.all(
+          Array.from({ length: tontine.nombreTours }, (_, i) => {
+            const numero = i + 1;
+            const estPremier = numero === 1;
+            const beneficiaireId = ordreBeneficiaires[i] || null;
 
-          return tx.tour.create({
-            data: {
-              tontineId: id,
-              numero,
-              beneficiaireId,
-              montant: tontine.montant * tontine.membres.length,
-              statut: estPremier ? 'EN_COURS' : 'A_VENIR',
-              dateDebut: estPremier ? new Date() : dates[i] || null,
-            },
-          });
-        })
-      );
+            return tx.tour.create({
+              data: {
+                tontineId: id,
+                numero,
+                beneficiaireId,
+                montant: tontine.montant * tontine.membres.length,
+                statut: estPremier ? 'EN_COURS' : 'A_VENIR',
+                dateDebut: estPremier ? new Date() : dates[i] || null,
+              },
+            });
+          })
+        );
 
-      const cotisationsData = tours.flatMap((tour, tourIndex) =>
-        tontine.membres.map((membre) => ({
-          tontineId: id,
-          userId: membre.userId,
-          tourId: tour.id,
-          montant: tontine.montant,
-          statut: 'EN_ATTENTE',
-          dateEcheance: dates[tourIndex] || new Date(),
-        }))
-      );
-
-      await tx.cotisation.createMany({ data: cotisationsData });
-
-      const tontineUpdated = await tx.tontine.update({
-        where: { id },
-        data: {
-          statut: 'ACTIVE',
-          dateDebut: new Date(),
-          tourActuel: 1,
-        },
-      });
-
-      const notificationsData = tontine.membres.map((membre) => ({
-        userId: membre.userId,
-        titre: '🎉 Tontine démarrée',
-        message: `La tontine "${tontine.nom}" a démarré !\n\n` +
-          `💰 Cotisation : ${tontine.montant.toLocaleString()} FCFA\n` +
-          `📅 Première échéance : ${dates[0]?.toLocaleDateString('fr-FR') || 'À définir'}\n` +
-          `🎯 Tours : ${tontine.nombreTours}\n` +
-          `👥 Membres : ${tontine.membres.length}`,
-        type: 'INFO',
-        lien: `/tontines/${id}`,
-      }));
-
-      await tx.notification.createMany({ data: notificationsData });
-
-      await tx.auditLog.create({
-        data: {
-          userId: user.id,
-          action: 'TONTINE_DEMARREE',
-          details: JSON.stringify({
+        const cotisationsData = tours.flatMap((tour, tourIndex) =>
+          tontine.membres.map((membre) => ({
             tontineId: id,
-            nombreMembres: tontine.membres.length,
-            nombreTours: tontine.nombreTours,
-            nombreCotisations: cotisationsData.length,
-          }),
-        },
-      });
+            userId: membre.userId,
+            tourId: tour.id,
+            montant: tontine.montant,
+            statut: 'EN_ATTENTE',
+            dateEcheance: dates[tourIndex] || new Date(),
+          }))
+        );
 
-      return {
-        tontine: tontineUpdated,
-        tours: tours.length,
-        cotisations: cotisationsData.length,
-        notifications: notificationsData.length,
-      };
-    });
+        await tx.cotisation.createMany({ data: cotisationsData });
+
+        const tontineUpdated = await tx.tontine.update({
+          where: { id },
+          data: {
+            statut: 'ACTIVE',
+            dateDebut: new Date(),
+            tourActuel: 1,
+            montantTotal: tontine.montant * tontine.membres.length * tontine.nombreTours,
+          },
+        });
+
+        const notificationsData = tontine.membres.map((membre) => ({
+          userId: membre.userId,
+          titre: '🎉 Tontine démarrée',
+          message: `La tontine "${tontine.nom}" a démarré !\n\n` +
+            `💰 Cotisation : ${tontine.montant.toLocaleString()} FCFA\n` +
+            `📅 Première échéance : ${dates[0]?.toLocaleDateString('fr-FR') || 'À définir'}\n` +
+            `🎯 Tours : ${tontine.nombreTours}\n` +
+            `👥 Membres : ${tontine.membres.length}`,
+          type: 'INFO',
+          lien: `/tontines/${id}`,
+        }));
+
+        await tx.notification.createMany({ data: notificationsData });
+
+        await tx.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'TONTINE_DEMARREE',
+            details: JSON.stringify({
+              tontineId: id,
+              nombreMembres: tontine.membres.length,
+              nombreTours: tontine.nombreTours,
+              nombreCotisations: cotisationsData.length,
+            }),
+          },
+        });
+
+        return {
+          tontine: tontineUpdated,
+          tours: tours.length,
+          cotisations: cotisationsData.length,
+          notifications: notificationsData.length,
+        };
+      },
+      {
+        timeout: 30000,   // 30 secondes (par défaut : 5000ms)
+        maxWait: 10000,   // 10 secondes d'attente max pour démarrer la transaction
+      }
+    );
 
     return NextResponse.json({
       success: true,

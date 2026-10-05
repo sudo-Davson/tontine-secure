@@ -21,11 +21,64 @@ import {
   Loader2,
   Trash2,
   Wallet,
-  Play
+  Play,
+  Crown,
+  Lock
 } from 'lucide-react';
 import ContactPicker from '../../../../components/shared/ContactPicker';
 
 // Types
+interface Beneficiaire {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatarUrl: string | null;
+}
+
+interface Retardataire {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  cotisationId: string;
+  statut: string;
+}
+
+interface TourEnrichi {
+  id: string;
+  numero: number;
+  beneficiaireId: string | null;
+  beneficiaire: Beneficiaire | null;
+  montant: number;
+  statut: string;
+  dateDebut: string | null;
+  dateFin: string | null;
+  datePaiement: string | null;
+  clotureLe: string | null;
+  clotureParAdmin: boolean;
+  cotisationsPayees: number;
+  cotisationsTotal: number;
+  pourcentagePaiement: number;
+  estMonTour: boolean;
+  peutEtreCloture: boolean;
+   // 🆕 Infos sur ma cotisation
+  aiPayeCeTour: boolean;
+  maCotisationStatut: string | null;
+  maCotisationId: string | null;
+   // 🆕 Retardataires et montant
+  retardataires: Retardataire[];
+  montantRestant: number;
+}
+
+interface UserInfo {
+  userId: string;
+  estAdmin: boolean;
+  maPosition: number | null;
+  monTour: TourEnrichi | null;
+  mesCotisationsPayees: number;
+  mesCotisationsTotal: number;
+}
+
 interface TontineDetail {
   id: string;
   nom: string;
@@ -78,16 +131,7 @@ interface TontineDetail {
       kycLevel: number;
     };
   }>;
-  tours: Array<{
-    id: string;
-    numero: number;
-    beneficiaireId: string | null;
-    montant: number;
-    statut: string;
-    dateDebut: string | null;
-    dateFin: string | null;
-    datePaiement: string | null;
-  }>;
+  tours: TourEnrichi[];
   cotisations: Array<{
     id: string;
     montant: number;
@@ -109,6 +153,7 @@ export default function TontineDetailPage() {
   const tontineId = params.id as string;
 
   const [tontine, setTontine] = useState<TontineDetail | null>(null);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('APERCU');
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -143,6 +188,26 @@ export default function TontineDetailPage() {
   const [showDemarrerModal, setShowDemarrerModal] = useState(false);
   const [isDemarrant, setIsDemarrant] = useState(false);
 
+  // 🆕 États pour clôturer un tour
+  const [showCloturerModal, setShowCloturerModal] = useState(false);
+  const [tourToCloturer, setTourToCloturer] = useState<TourEnrichi | null>(null);
+  const [isCloturing, setIsCloturing] = useState(false);
+
+  // 🆕 Tours dépliés (pour afficher les retardataires)
+  const [toursDeplies, setToursDeplies] = useState<Set<string>>(new Set());
+
+  const toggleTourDeplie = (tourId: string) => {
+    setToursDeplies((prev) => {
+      const next = new Set(prev);
+      if (next.has(tourId)) {
+        next.delete(tourId);
+      } else {
+        next.add(tourId);
+      }
+      return next;
+    });
+  };
+
   // ============================================
   // CHARGER LA TONTINE
   // ============================================
@@ -161,6 +226,7 @@ export default function TontineDetailPage() {
 
       if (data.success) {
         setTontine(data.tontine);
+        setUserInfo(data.userInfo || null); // 🆕
       } else {
         if (retry < 2) {
           await new Promise((r) => setTimeout(r, 2000));
@@ -423,6 +489,47 @@ export default function TontineDetailPage() {
   };
 
   // ============================================
+  // 🆕 CLÔTURER UN TOUR
+  // ============================================
+  const openCloturerModal = (tour: TourEnrichi) => {
+    setTourToCloturer(tour);
+    setShowCloturerModal(true);
+  };
+
+  const handleConfirmCloturer = async () => {
+    if (!tourToCloturer) return;
+
+    try {
+      setIsCloturing(true);
+
+      const response = await fetch(
+        `/api/tontines/${tontineId}/tours/${tourToCloturer.id}/cloturer`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(data.message, { duration: 6000 });
+        setShowCloturerModal(false);
+        setTourToCloturer(null);
+        fetchTontine();
+      } else {
+        toast.error(data.error || 'Erreur');
+      }
+    } catch (error) {
+      console.error('Erreur:', error);
+      toast.error('Erreur réseau');
+    } finally {
+      setIsCloturing(false);
+    }
+  };
+
+  // ============================================
   // HELPERS
   // ============================================
   const getStatutColor = (statut: string) => {
@@ -436,6 +543,7 @@ export default function TontineDetailPage() {
         return 'bg-yellow-100 text-yellow-800';
       case 'EN_RETARD':
       case 'ANNULEE':
+      case 'ANNULE':
         return 'bg-red-100 text-red-800';
       case 'EN_COURS':
         return 'bg-purple-100 text-purple-800';
@@ -450,12 +558,46 @@ export default function TontineDetailPage() {
       case 'EN_ATTENTE': return 'En attente';
       case 'EN_RETARD': return 'En retard';
       case 'ANNULEE': return 'Annulée';
+      case 'ANNULE': return 'Annulé';
       case 'TERMINE': return 'Terminé';
       case 'EN_COURS': return 'En cours';
       case 'A_VENIR': return 'À venir';
       case 'ACTIVE': return 'Active';
       case 'TERMINEE': return 'Terminée';
       default: return statut;
+    }
+  };
+
+  const getStatutTourStyle = (statut: string) => {
+    switch (statut) {
+      case 'TERMINE':
+        return {
+          bg: 'bg-green-50 dark:bg-green-900/20',
+          border: 'border-green-300 dark:border-green-700',
+          badge: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+          icon: '✅',
+        };
+      case 'EN_COURS':
+        return {
+          bg: 'bg-purple-50 dark:bg-purple-900/20',
+          border: 'border-purple-400 dark:border-purple-600',
+          badge: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+          icon: '🟢',
+        };
+      case 'ANNULE':
+        return {
+          bg: 'bg-red-50 dark:bg-red-900/20',
+          border: 'border-red-300 dark:border-red-700',
+          badge: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+          icon: '⚫',
+        };
+      default: // A_VENIR
+        return {
+          bg: 'bg-gray-50 dark:bg-gray-700/30',
+          border: 'border-gray-200 dark:border-gray-600',
+          badge: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+          icon: '⏳',
+        };
     }
   };
 
@@ -490,6 +632,42 @@ export default function TontineDetailPage() {
       month: 'long',
       year: 'numeric',
     });
+  };
+
+  const formatDateCourte = (date: string | null) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+    // 🆕 Compte à rebours adaptatif
+  const getCompteARebours = (dateCible: string | null): string => {
+    if (!dateCible) return '';
+
+    const maintenant = new Date();
+    const cible = new Date(dateCible);
+    const diffMs = cible.getTime() - maintenant.getTime();
+    const diffJours = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffJours < 0) {
+      return `en retard de ${Math.abs(diffJours)} jour${Math.abs(diffJours) > 1 ? 's' : ''}`;
+    }
+    if (diffJours === 0) {
+      return "aujourd'hui";
+    }
+    if (diffJours === 1) {
+      return 'demain';
+    }
+    if (diffJours < 30) {
+      return `dans ${diffJours} jour${diffJours > 1 ? 's' : ''}`;
+    }
+    if (diffJours < 60) {
+      return 'dans 1 mois';
+    }
+    const mois = Math.round(diffJours / 30);
+    return `dans ${mois} mois`;
   };
 
   // ============================================
@@ -531,6 +709,12 @@ export default function TontineDetailPage() {
   const membresActifs = tontine.membres.filter((m) => m.statut !== 'RETIRE');
   const membresRetires = tontine.membres.filter((m) => m.statut === 'RETIRE');
 
+  const membresManquants = tontine.nombreMembres - membresActifs.length;
+  const tontineComplete = membresManquants === 0;
+
+  // 🆕 Info du tour en cours
+  const tourEnCours = tontine.tours.find((t) => t.statut === 'EN_COURS');
+
   const tabs = [
     { id: 'APERCU', label: 'Aperçu', icon: TrendingUp },
     { id: 'MEMBRES', label: 'Membres', icon: Users },
@@ -570,6 +754,55 @@ export default function TontineDetailPage() {
         </button>
       </div>
 
+      {/* 🆕 Carte spéciale "Votre tour" */}
+      {userInfo?.monTour && tontine.statut === 'ACTIVE' && (
+        <div className={`rounded-2xl shadow-lg p-6 text-white ${
+          userInfo.monTour.statut === 'TERMINE'
+            ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+            : userInfo.monTour.statut === 'EN_COURS'
+              ? 'bg-gradient-to-r from-purple-500 to-pink-600'
+              : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+        }`}>
+          <div className="flex items-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+              <Crown className="h-8 w-8" />
+            </div>
+            <div className="flex-1">
+              <p className="text-white/90 font-bold text-sm">
+                {userInfo.monTour.statut === 'TERMINE'
+                  ? '✅ Vous avez reçu votre cagnotte'
+                  : userInfo.monTour.statut === 'EN_COURS'
+                    ? '🎯 C\'EST VOTRE TOUR MAINTENANT !'
+                    : '📅 Votre tour approche'}
+              </p>
+              <p className="text-2xl font-bold mt-1">
+                Tour n°{userInfo.monTour.numero}
+              </p>
+              <p className="text-white/90 font-medium">
+                {userInfo.monTour.statut === 'TERMINE' ? (
+                  <>Vous avez reçu <strong>{userInfo.monTour.montant.toLocaleString()} FCFA</strong></>
+                ) : (
+                  <>
+                    Vous recevrez <strong>{userInfo.monTour.montant.toLocaleString()} FCFA</strong>
+                    {userInfo.monTour.statut === 'A_VENIR' && userInfo.monTour.dateDebut && (
+                      <> — <strong>{getCompteARebours(userInfo.monTour.dateDebut)}</strong></>
+                    )}
+                    {userInfo.monTour.statut === 'EN_COURS' && (
+                      <> — <strong>en cours !</strong></>
+                    )}
+                  </>
+                )}
+              </p>
+              {userInfo.monTour.statut === 'A_VENIR' && userInfo.monTour.dateDebut && (
+                <p className="text-xs text-white/80 mt-1">
+                  📅 Prévu le {formatDateCourte(userInfo.monTour.dateDebut)}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Carte principale */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-lg p-6 text-white">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -597,32 +830,47 @@ export default function TontineDetailPage() {
         </div>
       </div>
 
-      {/* Bouton Démarrer (si EN_ATTENTE et admin) */}
+      {/* Carte DÉMARRER */}
       {tontine.statut === 'EN_ATTENTE' && (
-        <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl shadow-lg p-6 text-white">
+        <div className={`rounded-2xl shadow-lg p-6 text-white transition-colors ${
+          tontineComplete
+            ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+            : 'bg-gradient-to-r from-yellow-500 to-orange-500'
+        }`}>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-1">
               <div className="h-14 w-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                <Play className="h-7 w-7" />
+                {tontineComplete ? <Play className="h-7 w-7" /> : <Users className="h-7 w-7" />}
               </div>
-              <div>
-                <h2 className="text-xl font-bold">Démarrer la tontine</h2>
-                <p className="text-green-100 text-sm">
-                  {membresActifs.length}/{tontine.nombreMembres} membres • Prêt à démarrer
+              <div className="flex-1">
+                <h2 className="text-xl font-bold">
+                  {tontineComplete ? 'Prêt à démarrer !' : 'En attente de membres'}
+                </h2>
+                <p className="text-white/90 text-sm">
+                  {membresActifs.length}/{tontine.nombreMembres} membres inscrits
+                  {!tontineComplete && ` • ${membresManquants} membre(s) manquant(s)`}
                 </p>
+                <div className="mt-2 w-full max-w-xs bg-white/30 rounded-full h-2">
+                  <div
+                    className="bg-white rounded-full h-2 transition-all duration-500"
+                    style={{ width: `${(membresActifs.length / tontine.nombreMembres) * 100}%` }}
+                  />
+                </div>
               </div>
             </div>
             <button
               onClick={() => setShowDemarrerModal(true)}
-              disabled={membresActifs.length < 2}
+              disabled={!tontineComplete}
               className={`px-6 py-3 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 flex-shrink-0 ${
-                membresActifs.length < 2
+                !tontineComplete
                   ? 'bg-white/30 text-white/70 cursor-not-allowed'
                   : 'bg-white text-green-600 hover:bg-green-50'
               }`}
             >
               <Play className="h-5 w-5" />
-              {membresActifs.length < 2 ? 'Minimum 2 membres requis' : 'Démarrer maintenant'}
+              {!tontineComplete
+                ? `Encore ${membresManquants} membre(s) requis`
+                : 'Démarrer maintenant'}
             </button>
           </div>
         </div>
@@ -673,7 +921,7 @@ export default function TontineDetailPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-700 dark:text-gray-300 font-medium">Nombre de membres</span>
-                <span className="font-bold text-gray-900 dark:text-white">
+                <span className={`font-bold ${tontineComplete ? 'text-green-600' : 'text-yellow-600'}`}>
                   {membresActifs.length}/{tontine.nombreMembres}
                 </span>
               </div>
@@ -730,6 +978,36 @@ export default function TontineDetailPage() {
       {/* ========== MEMBRES ========== */}
       {activeTab === 'MEMBRES' && (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border-2 border-gray-200 dark:border-gray-600 p-6">
+          {/* Barre de progression du recrutement */}
+          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-bold text-gray-900 dark:text-white">
+                Progression du recrutement
+              </span>
+              <span className={`text-sm font-bold ${tontineComplete ? 'text-green-600' : 'text-yellow-600'}`}>
+                {membresActifs.length}/{tontine.nombreMembres}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3">
+              <div
+                className={`h-3 rounded-full transition-all duration-500 ${tontineComplete ? 'bg-green-500' : 'bg-blue-500'}`}
+                style={{ width: `${(membresActifs.length / tontine.nombreMembres) * 100}%` }}
+              />
+            </div>
+            {!tontineComplete && (
+              <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-2 font-medium flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                Encore {membresManquants} membre(s) à recruter avant de pouvoir démarrer
+              </p>
+            )}
+            {tontineComplete && (
+              <p className="text-xs text-green-700 dark:text-green-300 mt-2 font-bold flex items-center gap-1">
+                <CheckCircle className="h-3 w-3" />
+                Tous les membres sont inscrits !
+              </p>
+            )}
+          </div>
+
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-900 dark:text-white">
               Membres ({membresActifs.length}/{tontine.nombreMembres})
@@ -743,12 +1021,15 @@ export default function TontineDetailPage() {
             </button>
           </div>
 
-          {/* Membres actifs */}
           <div className="space-y-3">
             {membresActifs.map((membre) => (
               <div
                 key={membre.id}
-                className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border-2 border-gray-100 dark:border-gray-700 rounded-lg"
+                className={`flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border-2 rounded-lg ${
+                  membre.userId === userInfo?.userId
+                    ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-100 dark:border-gray-700'
+                }`}
               >
                 <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
                   <span className="font-bold text-gray-700 dark:text-gray-300">
@@ -758,19 +1039,18 @@ export default function TontineDetailPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-900 dark:text-white truncate">
                     {membre.user.firstName} {membre.user.lastName}
+                    {membre.userId === userInfo?.userId && (
+                      <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">Vous</span>
+                    )}
                   </p>
                   <p className="text-sm text-gray-700 dark:text-gray-300 font-medium truncate">
                     {membre.user.email}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-bold ${
-                      membre.role === 'ADMIN'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
+                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                    membre.role === 'ADMIN' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
                     {membre.role}
                   </span>
                   <div className="text-right">
@@ -795,9 +1075,32 @@ export default function TontineDetailPage() {
                 </div>
               </div>
             ))}
+
+            {!tontineComplete && tontine.statut === 'EN_ATTENTE' && (
+              <>
+                {Array.from({ length: membresManquants }).map((_, i) => (
+                  <div
+                    key={`empty-${i}`}
+                    className="flex items-center gap-4 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/30"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                      <UserPlus className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-gray-400 dark:text-gray-500">Place disponible</p>
+                    </div>
+                    <button
+                      onClick={() => setShowInviteModal(true)}
+                      className="px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                    >
+                      Inviter
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
 
-          {/* Membres retirés */}
           {membresRetires.length > 0 && (
             <div className="mt-6 pt-6 border-t-2 border-gray-200 dark:border-gray-700">
               <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-3 text-sm flex items-center gap-2">
@@ -842,9 +1145,7 @@ export default function TontineDetailPage() {
                     {membre.montantCotise > 0 && (
                       <div className="bg-white dark:bg-gray-800 rounded-lg p-3 space-y-1.5">
                         <div className="flex justify-between text-xs">
-                          <span className="text-gray-700 dark:text-gray-300 font-medium">
-                            💰 Cotisé
-                          </span>
+                          <span className="text-gray-700 dark:text-gray-300 font-medium">💰 Cotisé</span>
                           <span className="font-bold text-gray-900 dark:text-white">
                             {membre.montantCotise.toLocaleString()} FCFA
                           </span>
@@ -858,9 +1159,7 @@ export default function TontineDetailPage() {
                           </span>
                         </div>
                         <div className="flex justify-between text-sm pt-1.5 border-t border-gray-200 dark:border-gray-700">
-                          <span className="text-green-700 dark:text-green-400 font-bold">
-                            ✅ À rembourser
-                          </span>
+                          <span className="text-green-700 dark:text-green-400 font-bold">✅ À rembourser</span>
                           <span className="font-bold text-green-700 dark:text-green-400">
                             {membre.montantRembourse.toLocaleString()} FCFA
                           </span>
@@ -877,14 +1176,7 @@ export default function TontineDetailPage() {
                         )}
                         {membre.statutRemboursement === 'REMBOURSE' && (
                           <div className="text-center pt-1">
-                            <p className="text-xs text-green-600 dark:text-green-400 font-bold">
-                              ✅ Remboursé
-                            </p>
-                            {membre.rembourseLe && (
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                le {formatDate(membre.rembourseLe)}
-                              </p>
-                            )}
+                            <p className="text-xs text-green-600 dark:text-green-400 font-bold">✅ Remboursé</p>
                           </div>
                         )}
                       </div>
@@ -897,38 +1189,293 @@ export default function TontineDetailPage() {
         </div>
       )}
 
-      {/* ========== TOURS ========== */}
+            {/* ========== TOURS (AMÉLIORÉ) ========== */}
       {activeTab === 'TOURS' && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border-2 border-gray-200 dark:border-gray-600 p-6">
-          <h3 className="font-bold text-gray-900 dark:text-white mb-4">Tours de collecte</h3>
-          <div className="space-y-3">
-            {tontine.tours.map((tour) => (
-              <div
-                key={tour.id}
-                className="flex items-center gap-4 p-4 border-2 border-gray-100 dark:border-gray-700 rounded-lg"
-              >
-                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <span className="font-bold text-blue-600">{tour.numero}</span>
+        <div className="space-y-4">
+          {/* 🆕 RÉSUMÉ EN HAUT */}
+          {(() => {
+            const toursTermines = tontine.tours.filter((t) => t.statut === 'TERMINE').length;
+            const toursEnCours = tontine.tours.filter((t) => t.statut === 'EN_COURS');
+            const tourEnCoursActuel = toursEnCours[0];
+            const totalCotisationsPayees = tontine.tours.reduce((sum, t) => sum + t.cotisationsPayees, 0);
+            const totalCotisations = tontine.tours.reduce((sum, t) => sum + t.cotisationsTotal, 0);
+            const pourcentageGlobal = totalCotisations > 0
+              ? Math.round((totalCotisationsPayees / totalCotisations) * 100)
+              : 0;
+            const montantRestantGlobal = tontine.tours
+              .filter((t) => t.statut !== 'TERMINE' && t.statut !== 'ANNULE')
+              .reduce((sum, t) => sum + t.montantRestant, 0);
+
+            return (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl shadow-sm border-2 border-blue-200 dark:border-blue-800 p-4">
+                <p className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                  📊 Progression de la tontine
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Tours effectués</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
+                      {toursTermines}/{tontine.nombreTours}
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Tour en cours</p>
+                    <p className="text-lg font-bold text-purple-600">
+                      {tourEnCoursActuel ? `N°${tourEnCoursActuel.numero}` : '—'}
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Cotisations payées</p>
+                    <p className="text-lg font-bold text-green-600">{pourcentageGlobal}%</p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Reste à collecter</p>
+                    <p className="text-lg font-bold text-orange-600">
+                      {montantRestantGlobal.toLocaleString()} F
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 dark:text-white">Tour {tour.numero}</p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                    Bénéficiaire : {tour.beneficiaireId ? 'Défini' : 'En attente'}
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="font-bold text-gray-900 dark:text-white">
-                    {tour.montant.toLocaleString()} FCFA
-                  </p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                    {formatDate(tour.dateDebut)}
-                  </p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold flex-shrink-0 ${getStatutColor(tour.statut)}`}>
-                  {getStatutLabel(tour.statut)}
-                </span>
               </div>
-            ))}
+            );
+          })()}
+
+          {/* Info utilisateur */}
+          {userInfo?.maPosition && (
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg p-4 text-white">
+              <div className="flex items-center gap-3">
+                <Crown className="h-6 w-6" />
+                <div>
+                  <p className="font-bold">Votre position : Tour n°{userInfo.maPosition}</p>
+                  <p className="text-sm text-white/90">
+                    Vous recevrez {userInfo.monTour?.montant.toLocaleString()} FCFA
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Légende */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border-2 border-gray-200 dark:border-gray-600 p-4">
+            <p className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">Légende :</p>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <span className="text-lg">⏳</span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">À venir</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-lg">🟢</span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">En cours</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-lg">✅</span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">Terminé</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-lg">⚫</span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">Annulé</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Crown className="h-4 w-4 text-yellow-500" />
+                <span className="text-gray-700 dark:text-gray-300 font-medium">Votre tour</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Liste des tours */}
+          <div className="space-y-3">
+            {tontine.tours.map((tour) => {
+              const style = getStatutTourStyle(tour.statut);
+              const estMonTour = tour.estMonTour;
+              const peutCloturer = tour.peutEtreCloture && userInfo?.estAdmin;
+
+              return (
+                <div
+                  key={tour.id}
+                  className={`rounded-xl border-2 shadow-sm p-4 transition-all ${style.bg} ${style.border} ${
+                    estMonTour ? 'ring-2 ring-yellow-400 ring-offset-2' : ''
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    {/* Numéro du tour */}
+                    <div className={`h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      tour.statut === 'TERMINE' ? 'bg-green-200 text-green-800' :
+                      tour.statut === 'EN_COURS' ? 'bg-purple-200 text-purple-800' :
+                      tour.statut === 'ANNULE' ? 'bg-red-200 text-red-800' :
+                      'bg-gray-200 text-gray-700'
+                    }`}>
+                      <span className="font-bold text-lg">{tour.numero}</span>
+                    </div>
+
+                    {/* Infos principales */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <p className="font-bold text-gray-900 dark:text-white">
+                          Tour n°{tour.numero}
+                        </p>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${style.badge}`}>
+                          {style.icon} {getStatutLabel(tour.statut)}
+                        </span>
+                        {estMonTour && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-400 text-yellow-900 flex items-center gap-1">
+                            <Crown className="h-3 w-3" />
+                            C'est votre tour !
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Bénéficiaire */}
+                      {tour.beneficiaire ? (
+                        <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                          👑 Bénéficiaire : <strong>
+                            {tour.beneficiaire.firstName} {tour.beneficiaire.lastName}
+                          </strong>
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium italic">
+                          Aucun bénéficiaire
+                        </p>
+                      )}
+
+                      {/* Date */}
+                      {tour.dateDebut && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">
+                          📅 {tour.statut === 'TERMINE'
+                            ? `Clôturé le ${formatDateCourte(tour.clotureLe || tour.dateFin)}`
+                            : `Prévu le ${formatDateCourte(tour.dateDebut)}`}
+                        </p>
+                      )}
+
+                                            {/* 🆕 MA COTISATION À CE TOUR */}
+                      {tour.statut === 'EN_COURS' && tour.maCotisationStatut && (
+                        <div className="mt-2">
+                          {tour.aiPayeCeTour ? (
+                            <div className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold">
+                              <CheckCircle className="h-3 w-3" />
+                              Vous avez payé ce tour
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">
+                              <AlertCircle className="h-3 w-3" />
+                              Votre cotisation est en attente
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                                            {/* Barre de progression pour EN_COURS */}
+                      {tour.statut === 'EN_COURS' && tour.cotisationsTotal > 0 && (
+                        <div className="mt-3">
+                          <div className="flex justify-between text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            <span>Cotisations payées par les membres</span>
+                            <span>{tour.cotisationsPayees}/{tour.cotisationsTotal}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full transition-all ${
+                                tour.pourcentagePaiement === 100 ? 'bg-green-500' : 'bg-purple-500'
+                              }`}
+                              style={{ width: `${tour.pourcentagePaiement}%` }}
+                            />
+                          </div>
+
+                          {/* 🆕 Détails + Retardataires */}
+                          <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
+                            <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+                              {tour.cotisationsPayees} payé(s) • {tour.retardataires.length} en attente • Reste : <strong>{tour.montantRestant.toLocaleString()} FCFA</strong>
+                            </p>
+                            {tour.retardataires.length > 0 && (
+                              <button
+                                onClick={() => toggleTourDeplie(tour.id)}
+                                className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                              >
+                                👥 Voir les {tour.retardataires.length} retardataire(s)
+                                {toursDeplies.has(tour.id) ? ' ▲' : ' ▼'}
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Liste des retardataires (dépliable) */}
+                          {toursDeplies.has(tour.id) && tour.retardataires.length > 0 && (
+                            <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                              <p className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                ⏳ Membres n'ayant pas encore payé :
+                              </p>
+                              <div className="space-y-1.5">
+                                {tour.retardataires.map((r) => (
+                                  <div
+                                    key={r.userId}
+                                    className="flex items-center justify-between text-xs"
+                                  >
+                                    <span className="text-gray-700 dark:text-gray-300">
+                                      • {r.firstName} {r.lastName}
+                                    </span>
+                                    <span className={`px-2 py-0.5 rounded-full font-bold ${
+                                      r.statut === 'EN_RETARD'
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                      {r.statut === 'EN_RETARD' ? 'En retard' : 'En attente'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 🆕 ENCADRÉ SPÉCIAL SI C'EST VOTRE TOUR */}
+                    {estMonTour && (
+                      <div className="w-full mt-4 p-4 bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border-2 border-yellow-400 dark:border-yellow-700 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
+                            <Crown className="h-5 w-5 text-yellow-900" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-bold text-yellow-900 dark:text-yellow-200 mb-1">
+                              🎁 Votre cagnotte à recevoir
+                            </p>
+                            <p className="text-sm text-yellow-800 dark:text-yellow-300 font-medium">
+                              {tour.montant.toLocaleString()} FCFA
+                              {tour.dateDebut && (
+                                <> • prévu le <strong>{formatDateCourte(tour.dateDebut)}</strong></>
+                              )}
+                            </p>
+                            {tour.statut === 'A_VENIR' && (
+                              <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-2">
+                                💡 Vous recevrez votre cagnotte quand tous les tours précédents seront clôturés.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Montant */}
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-lg font-bold text-gray-900 dark:text-white">
+                        {tour.montant.toLocaleString()} FCFA
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+                        à recevoir
+                      </p>
+                    </div>
+
+                    {/* Bouton clôturer (admin) */}
+                    {peutCloturer && (
+                      <button
+                        onClick={() => openCloturerModal(tour)}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-sm flex items-center gap-2 flex-shrink-0"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        Clôturer
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -957,7 +1504,11 @@ export default function TontineDetailPage() {
               {tontine.cotisations.map((cot) => (
                 <div
                   key={cot.id}
-                  className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border-2 border-gray-100 dark:border-gray-700 rounded-lg"
+                  className={`flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border-2 rounded-lg ${
+                    cot.user.id === userInfo?.userId
+                      ? 'border-blue-300 bg-blue-50 dark:bg-blue-900/20'
+                      : 'border-gray-100 dark:border-gray-700'
+                  }`}
                 >
                   <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                     cot.statut === 'PAYEE' ? 'bg-green-100' : 'bg-yellow-100'
@@ -969,30 +1520,23 @@ export default function TontineDetailPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-gray-900 dark:text-white truncate">
                       {cot.user.firstName} {cot.user.lastName}
+                      {cot.user.id === userInfo?.userId && (
+                        <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">Vous</span>
+                      )}
                     </p>
                     <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
                       Échéance : {formatDate(cot.dateEcheance)}
                     </p>
-                    {cot.methodePaiement && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        Payé via {cot.methodePaiement === 'TMONEY' ? 'Tmoney' : 'Flooz'}
-                      </p>
-                    )}
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-bold text-gray-900 dark:text-white">
                       {cot.montant.toLocaleString()} FCFA
                     </p>
-                    {cot.datePaiement && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        Payé le {formatDate(cot.datePaiement)}
-                      </p>
-                    )}
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-bold flex-shrink-0 ${getStatutColor(cot.statut)}`}>
                     {getStatutLabel(cot.statut)}
                   </span>
-                  {cot.statut !== 'PAYEE' && (
+                  {cot.statut !== 'PAYEE' && cot.user.id === userInfo?.userId && (
                     <button
                       onClick={() => openPayerModal(cot)}
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold text-sm flex items-center gap-2 flex-shrink-0"
@@ -1008,7 +1552,7 @@ export default function TontineDetailPage() {
         </div>
       )}
 
-      {/* ========== MODAL : DÉMARRER LA TONTINE ========== */}
+            {/* ========== MODAL : DÉMARRER LA TONTINE ========== */}
       {showDemarrerModal && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6">
@@ -1028,24 +1572,25 @@ export default function TontineDetailPage() {
 
             <div className="bg-green-50 dark:bg-green-900/30 border-2 border-green-300 dark:border-green-700 rounded-lg p-4 mb-4">
               <p className="text-sm text-green-800 dark:text-green-200 font-bold mb-2">
-                ✅ Prêt à démarrer
+                ✅ Tous les membres sont inscrits
               </p>
               <ul className="text-xs text-green-700 dark:text-green-300 space-y-1">
-                <li>• {membresActifs.length} membre(s) actif(s)</li>
-                <li>• {tontine.nombreTours} tour(s)</li>
+                <li>• {membresActifs.length}/{tontine.nombreMembres} membre(s) confirmé(s)</li>
+                <li>• {tontine.nombreTours} tour(s) de collecte</li>
                 <li>• {membresActifs.length * tontine.nombreTours} cotisation(s) seront créées</li>
                 <li>• Montant par tour : {(tontine.montant * membresActifs.length).toLocaleString()} FCFA</li>
+                <li>• Vous recevrez : <strong>{(tontine.montant * membresActifs.length).toLocaleString()} FCFA</strong> lors de votre tour</li>
               </ul>
             </div>
 
             <div className="bg-yellow-50 dark:bg-yellow-900/30 border-2 border-yellow-300 dark:border-yellow-700 rounded-lg p-3 mb-4">
               <p className="text-xs text-yellow-800 dark:text-yellow-200 font-bold">
-                ⚠️ Une fois démarrée, la tontine ne peut plus être modifiée.
+                ⚠️ Une fois démarrée, la tontine ne peut plus être modifiée. Les cotisations débuteront immédiatement.
               </p>
             </div>
 
             <p className="text-sm text-gray-700 dark:text-gray-300 font-medium mb-6">
-              Voulez-vous vraiment démarrer cette tontine ?
+              Voulez-vous vraiment démarrer cette tontine avec ces {membresActifs.length} membres ?
             </p>
 
             <div className="flex gap-3">
@@ -1058,9 +1603,9 @@ export default function TontineDetailPage() {
               </button>
               <button
                 onClick={handleDemarrer}
-                disabled={isDemarrant}
+                disabled={isDemarrant || !tontineComplete}
                 className={`flex-1 py-3 px-4 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 ${
-                  isDemarrant
+                  isDemarrant || !tontineComplete
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-green-600 text-white hover:bg-green-700'
                 }`}
@@ -1402,6 +1947,21 @@ export default function TontineDetailPage() {
               Entrez l'email ou le téléphone d'un utilisateur existant
             </p>
 
+            {!tontineComplete && (
+              <div className="bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-3 mb-4">
+                <p className="text-xs text-blue-800 dark:text-blue-200 font-bold">
+                  ℹ️ Il reste {membresManquants} place(s) sur {tontine.nombreMembres}
+                </p>
+              </div>
+            )}
+            {tontineComplete && (
+              <div className="bg-green-50 dark:bg-green-900/30 border-2 border-green-300 dark:border-green-700 rounded-lg p-3 mb-4">
+                <p className="text-xs text-green-800 dark:text-green-200 font-bold">
+                  ✅ Tous les membres sont déjà inscrits
+                </p>
+              </div>
+            )}
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
@@ -1441,9 +2001,9 @@ export default function TontineDetailPage() {
               </button>
               <button
                 onClick={handleAddMember}
-                disabled={isAddingMember || (!inviteEmail && !invitePhone)}
+                disabled={isAddingMember || (!inviteEmail && !invitePhone) || tontineComplete}
                 className={`flex-1 py-3 px-4 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 ${
-                  isAddingMember || (!inviteEmail && !invitePhone)
+                  isAddingMember || (!inviteEmail && !invitePhone) || tontineComplete
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
@@ -1461,6 +2021,7 @@ export default function TontineDetailPage() {
           </div>
         </div>
       )}
+      
     </div>
   );
 }
