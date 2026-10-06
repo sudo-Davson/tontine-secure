@@ -38,7 +38,7 @@ export default function LoginPage() {
 
     if (result.success) {
       toast.success('Connexion réussie !');
-      setTimeout(() => router.push('/dashboard'), 1000);
+      window.location.href = '/dashboard';
     } else {
       setIsLoading(false);
 
