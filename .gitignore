@@ -46,3 +46,6 @@ secrets.json
 .npm-cache/
 
 /lib/generated/prisma
+
+# Scripts de développement (à ne pas commiter)
+/scripts/

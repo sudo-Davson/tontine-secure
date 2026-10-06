@@ -11,9 +11,8 @@ import {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { email, password, force } = body;
 
-    // Validation
     if (!email || !password) {
       return NextResponse.json(
         { success: false, error: 'Email et mot de passe obligatoires' },
@@ -21,7 +20,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Chercher l'utilisateur
     const user = await prisma.user.findUnique({
       where: { email },
     });
@@ -33,7 +31,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Vérifier le mot de passe
     const isValid = await verifyPassword(password, user.password);
 
     if (!isValid) {
@@ -43,25 +40,30 @@ export async function POST(request: Request) {
       );
     }
 
-    // Créer une session (refuse si déjà connecté ailleurs)
     const userAgent = request.headers.get('user-agent') || undefined;
     const ipAddress = request.headers.get('x-forwarded-for') || undefined;
-    const sessionResult = await createSession(user.id, userAgent, ipAddress);
+    const sessionResult = await createSession(
+      user.id,
+      userAgent,
+      ipAddress,
+      force === true
+    );
 
-    // Si une session active existe → refuser la connexion
     if (!sessionResult.success) {
       return NextResponse.json(
-        { success: false, error: sessionResult.error },
-        { status: 409 }  // 409 = Conflict
+        {
+          success: false,
+          error: sessionResult.error,
+          existingSession: sessionResult.existingSession,
+          code: 'SESSION_ACTIVE',
+        },
+        { status: 409 }
       );
     }
 
     const session = sessionResult.session;
-
-    // Retirer le mot de passe
     const { password: _, ...userWithoutPassword } = user;
 
-    // Créer la réponse avec le cookie
     const response = NextResponse.json(
       {
         success: true,

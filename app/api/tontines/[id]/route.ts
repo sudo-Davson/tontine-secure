@@ -1,7 +1,7 @@
 // app/api/tontines/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { prisma } from '@/lib/prisma';
+import { prismaWithRetry as prisma } from '@/lib/prisma';
 import { verifyToken, verifySession, COOKIE_NAME } from '@/lib/auth';
 
 async function getCurrentUser() {
@@ -48,12 +48,33 @@ export async function GET(
         membres: {
           include: {
             user: {
-              select: { id: true, firstName: true, lastName: true, email: true, reputation: true },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                reputation: true,
+                kycLevel: true,
+              },
             },
           },
+          orderBy: [
+            { statut: 'asc' },
+            { createdAt: 'asc' },
+          ],
         },
         tours: {
           orderBy: { numero: 'asc' },
+          include: {
+            cotisations: {
+              select: {
+                id: true,
+                userId: true,
+                statut: true,
+                datePaiement: true,
+              },
+            },
+          },
         },
         cotisations: {
           orderBy: { createdAt: 'desc' },
@@ -74,7 +95,6 @@ export async function GET(
       );
     }
 
-    // Vérifier que l'utilisateur est membre
     const isMember = tontine.membres.some((m) => m.userId === user.id);
     if (!isMember) {
       return NextResponse.json(
@@ -83,7 +103,126 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ success: true, tontine });
+    // ============================================
+    // 🆕 ENRICHISSEMENT DES TOURS
+    // ============================================
+    const beneficiaireIds = tontine.tours
+      .map((t) => t.beneficiaireId)
+      .filter((bid): bid is string => bid !== null);
+
+    const beneficiaires = await prisma.user.findMany({
+      where: { id: { in: beneficiaireIds } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        avatarUrl: true,
+      },
+    });
+
+    const beneficiairesMap = new Map(beneficiaires.map((b) => [b.id, b]));
+
+        const toursEnrichis = tontine.tours.map((tour) => {
+      const cotisationsPayees = tour.cotisations.filter(
+        (c) => c.statut === 'PAYEE'
+      ).length;
+      const cotisationsTotal = tour.cotisations.length;
+      const pourcentagePaiement =
+        cotisationsTotal > 0
+          ? Math.round((cotisationsPayees / cotisationsTotal) * 100)
+          : 0;
+
+      // 🆕 Ma cotisation sur ce tour
+      const maCotisationTour = tour.cotisations.find(
+        (c) => c.userId === user.id
+      );
+      const aiPayeCeTour = maCotisationTour?.statut === 'PAYEE';
+      const maCotisationStatut = maCotisationTour?.statut || null;
+
+      // 🆕 Retardataires (membres qui n'ont pas payé)
+      const retardataires = tour.cotisations
+        .filter((c) => c.statut !== 'PAYEE')
+        .map((c) => {
+          const membre = tontine.membres.find((m) => m.userId === c.userId);
+          return membre
+            ? {
+                userId: c.userId,
+                firstName: membre.user.firstName,
+                lastName: membre.user.lastName,
+                cotisationId: c.id,
+                statut: c.statut,
+              }
+            : null;
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+
+      // 🆕 Montant restant à collecter
+      const montantRestant = (cotisationsTotal - cotisationsPayees) * tontine.montant;
+
+      return {
+        id: tour.id,
+        numero: tour.numero,
+        beneficiaireId: tour.beneficiaireId,
+        beneficiaire: tour.beneficiaireId
+          ? beneficiairesMap.get(tour.beneficiaireId) || null
+          : null,
+        montant: tour.montant,
+        statut: tour.statut,
+        dateDebut: tour.dateDebut,
+        dateFin: tour.dateFin,
+        datePaiement: tour.datePaiement,
+        clotureLe: tour.clotureLe,
+        clotureParAdmin: tour.clotureParAdmin,
+        cotisationsPayees,
+        cotisationsTotal,
+        pourcentagePaiement,
+        estMonTour: tour.beneficiaireId === user.id,
+        peutEtreCloture:
+          tour.statut === 'EN_COURS' &&
+          cotisationsTotal > 0 &&
+          cotisationsPayees === cotisationsTotal,
+        // 🆕 Infos sur ma cotisation
+        aiPayeCeTour,
+        maCotisationStatut,
+        maCotisationId: maCotisationTour?.id || null,
+        // 🆕 Retardataires et montant
+        retardataires,
+        montantRestant,
+      };
+    });
+
+    // ============================================
+    // 🆕 INFOS POUR L'UTILISATEUR CONNECTÉ
+    // ============================================
+    const monTour = toursEnrichis.find((t) => t.estMonTour);
+    const maPosition = monTour?.numero || null;
+
+    const mesCotisations = tontine.cotisations.filter(
+      (c) => c.userId === user.id
+    );
+    const mesCotisationsPayees = mesCotisations.filter(
+      (c) => c.statut === 'PAYEE'
+    ).length;
+
+    const monMembership = tontine.membres.find((m) => m.userId === user.id);
+    const estAdmin = monMembership?.role === 'ADMIN';
+
+    return NextResponse.json({
+      success: true,
+      tontine: {
+        ...tontine,
+        tours: toursEnrichis,
+      },
+      userInfo: {
+        userId: user.id,
+        estAdmin,
+        maPosition,
+        monTour,
+        mesCotisationsPayees,
+        mesCotisationsTotal: mesCotisations.length,
+      },
+    });
   } catch (error: any) {
     console.error('Erreur GET tontine :', error);
     return NextResponse.json(
@@ -111,7 +250,6 @@ export async function PUT(
 
     const { id } = await params;
 
-    // Vérifier que l'utilisateur est ADMIN
     const membership = await prisma.member.findFirst({
       where: { tontineId: id, userId: user.id, role: 'ADMIN' },
     });
@@ -163,7 +301,6 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // Vérifier que l'utilisateur est créateur
     const tontine = await prisma.tontine.findUnique({
       where: { id },
     });

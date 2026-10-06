@@ -1,6 +1,6 @@
 // app/api/auth/register/route.ts
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prismaWithRetry as prisma } from '@/lib/prisma';
 import { 
   hashPassword, 
   createSession,

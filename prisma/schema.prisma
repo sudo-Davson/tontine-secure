@@ -46,7 +46,7 @@ model User {
   notifications   Notification[]
   invitationsSent Invitation[] @relation("InvitationSender")
   sessions        Session[]
-  
+
   // Timestamps
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -93,6 +93,10 @@ model Tontine {
   // Dates
   dateDebut       DateTime?
   dateFin         DateTime?
+
+  // 🆕 CONFIGURATION DES CHANCES
+  dureeChanceJours  Int       @default(7)   // Intervalle entre chances
+  nombreChancesMax  Int       @default(3)   // 3 chances max
   
   // Relations
   createurId      String
@@ -114,23 +118,42 @@ model Tontine {
 // ============================================
 
 model Member {
-  id          String   @id @default(cuid())
-  tontineId   String
-  userId      String
-  role        String   @default("MEMBRE")
-  statut      String   @default("ACTIF")
-  ordreTour   Int?
-  reputation  Float    @default(85)
-  nbRetards   Int      @default(0)
-  nbAbsences  Int      @default(0)
-  toursRecus  Int      @default(0)
+  id              String   @id @default(cuid())
+  tontineId       String
+  userId          String
+  role            String   @default("MEMBRE")
+  statut          String   @default("ACTIF")
+  ordreTour       Int?
+  reputation      Float    @default(85)
+  nbRetards       Int      @default(0)
+  nbAbsences      Int      @default(0)
+  toursRecus      Int      @default(0)
   
-  tontine     Tontine  @relation(fields: [tontineId], references: [id], onDelete: Cascade)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Soft Delete
+  retireLe        DateTime?
+  retirePar       String?
+  raisonRetrait   String?
   
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // ⚠️ NOUVEAU : Remboursement
+  montantCotise   Float    @default(0)  // Total cotisé
+  montantPenalite Float    @default(0)  // Pénalité retenue
+  montantRembourse Float   @default(0)  // Montant remboursé
+  pourcentagePenalite Int @default(0)   // % de pénalité
+  rembourseLe     DateTime?
+  statutRemboursement String @default("EN_ATTENTE") // EN_ATTENTE, REMBOURSE, ANNULE
   
+  // 🆕 SYSTÈME DE CHANCES
+  chancesUtilisees     Int       @default(0)   // 0 à 3
+  derniereChanceLe     DateTime?                // Date de la dernière notification
+  retireAutomatique    Boolean   @default(false) // Retiré pour impayé ?
+  dette                Float     @default(0)   // Si a reçu la cagnotte et doit rembourser
+
+  tontine         Tontine  @relation(fields: [tontineId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
   @@unique([tontineId, userId])
   @@map("members")
 }
@@ -151,6 +174,10 @@ model Cotisation {
   methodePaiement String?
   reference       String?
   penalite        Float    @default(0)
+
+   // 🆕 SUIVI DES RAPPELS
+  chancesRelance  Int       @default(0)   // Nb de rappels envoyés pour cette cotisation
+  dernierRappel   DateTime?
   
   tontine         Tontine  @relation(fields: [tontineId], references: [id], onDelete: Cascade)
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -176,6 +203,10 @@ model Tour {
   dateDebut       DateTime?
   dateFin         DateTime?
   datePaiement    DateTime?
+
+  // 🆕 TRAÇABILITÉ
+  clotureLe         DateTime?  // Date de clôture du tour
+  clotureParAdmin   Boolean    @default(false) // Clôturé manuellement
   
   tontine         Tontine  @relation(fields: [tontineId], references: [id], onDelete: Cascade)
   cotisations     Cotisation[]

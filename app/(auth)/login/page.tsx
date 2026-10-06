@@ -1,11 +1,12 @@
 // app/(auth)/login/page.tsx
 'use client';
-import toast from 'react-hot-toast';
+
 import { useState } from 'react';
 import Link from 'next/link';
-import { Wallet, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Wallet, Mail, Lock, Eye, EyeOff, AlertCircle, Monitor, Clock } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,6 +16,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [existingSession, setExistingSession] = useState<any>(null);
+  const [showForceModal, setShowForceModal] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,14 +38,37 @@ export default function LoginPage() {
 
     if (result.success) {
       toast.success('Connexion réussie !');
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 1000);
+      setTimeout(() => router.push('/dashboard'), 1000);
     } else {
       setIsLoading(false);
+
+      if (result.code === 'SESSION_ACTIVE' && result.existingSession) {
+        setExistingSession(result.existingSession);
+        setShowForceModal(true);
+        return;
+      }
+
       setError(result.error || 'Email ou mot de passe incorrect');
       toast.error(result.error || 'Email ou mot de passe incorrect');
     }
+  };
+
+  const handleForceLogin = async () => {
+    setShowForceModal(false);
+    setIsLoading(true);
+
+    const result = await login(email, password, true);
+
+    if (result.success) {
+      toast.success('Connexion réussie !');
+      setTimeout(() => router.push('/dashboard'), 1000);
+    } else {
+      setIsLoading(false);
+      setError(result.error || 'Erreur');
+      toast.error(result.error || 'Erreur');
+    }
+
+    setExistingSession(null);
   };
 
   const inputClassName = "w-full pl-10 pr-3 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder-gray-500 bg-white font-medium";
@@ -61,7 +87,10 @@ export default function LoginPage() {
 
         {error && (
           <div className="mb-4 bg-red-50 border-2 border-red-300 rounded-xl p-4">
-            <p className="text-sm font-bold text-red-700">{error}</p>
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm font-bold text-red-700">{error}</p>
+            </div>
           </div>
         )}
 
@@ -129,6 +158,71 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {showForceModal && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-12 w-12 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="h-6 w-6 text-yellow-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-lg">
+                  Session active détectée
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Un autre appareil est connecté
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-2">
+              <div className="flex items-start gap-2">
+                <Monitor className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-gray-700">Appareil</p>
+                  <p className="text-sm text-gray-900 truncate">
+                    {existingSession?.userAgent?.substring(0, 60) || 'Appareil inconnu'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <Clock className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-gray-700">Connecté depuis</p>
+                  <p className="text-sm text-gray-900">
+                    {existingSession?.createdAt
+                      ? new Date(existingSession.createdAt).toLocaleString('fr-FR')
+                      : 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-700 font-medium mb-5">
+              Pour vous connecter ici, vous devez d'abord déconnecter l'autre appareil.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowForceModal(false);
+                  setExistingSession(null);
+                }}
+                className="flex-1 py-3 px-4 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 font-bold transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleForceLogin}
+                className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold transition-colors"
+              >
+                Se connecter ici
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
